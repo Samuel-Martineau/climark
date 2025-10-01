@@ -136,13 +136,17 @@ impl Client {
             course_archivation: OptionalData<EmptyStruct>,
         }
 
-        let resp = self
+        let resp = match self
             .client
             .get("https://app.crowdmark.com/api/v2/student/courses?include[]=course-archivation")
             .send()
             .await?
             .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, EmptyStruct>>()
-            .await?;
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => panic!("{e}. Are you logged in?"),
+        };
 
         let courses: Vec<_> = resp
             .data
@@ -211,13 +215,17 @@ impl Client {
             ExamMaster(ExamMasterData),
         }
 
-        let resp = self
+        let resp = match self
             .client
             .get(format!("https://app.crowdmark.com/api/v2/student/assignments?fields[exam-masters][]=type&fields[exam-masters][]=title&filter[course]={course_id}"))
             .send()
             .await?
             .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, IncludedDataItem>>()
-            .await?;
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => panic!("{e}. Are you logged in?"),
+        };
 
         let exam_masters: HashMap<_, _> = resp
             .included
