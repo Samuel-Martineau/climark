@@ -1,3 +1,5 @@
+use std::process::Output;
+
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 
@@ -10,11 +12,20 @@ struct Cli {
     crowdmark_session_token: String,
 }
 
+#[derive(clap::ValueEnum, Clone, Default)]
+enum OutputFormat {
+    #[default]
+    Pretty,
+    Plain,
+    Json,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     ListCourses {
-        #[arg(short, long)]
-        json: bool,
+        #[arg(short, long, value_enum, default_value_t)]
+        // json: bool,
+        format: OutputFormat,
     },
     ListAssessments {
         #[arg(env = "CLIMARK_DEFAULT_COURSE")]
@@ -31,37 +42,43 @@ async fn main() {
     let client = crowdmark::Client::new(&cli.crowdmark_session_token);
 
     match &cli.command {
-        Commands::ListCourses { json } => {
+        Commands::ListCourses { format } => {
             let courses = client.list_courses().await.unwrap();
-            if *json {
-                println!("{}", serde_json::to_string(&courses).unwrap());
-            } else {
-                println!(
-                    "{:<40}{:<30}{:<12}",
-                    "Name".bold(),
-                    "Id".bold(),
-                    "Assessments".bold()
-                );
+            match format {
+                OutputFormat::Pretty => {
+                    println!(
+                        "{:<40}{:<30}{:<12}",
+                        "Name".bold(),
+                        "Id".bold(),
+                        "Assessments".bold()
+                    );
 
-                println!("{}", "=".repeat(81).bold());
+                    println!("{}", "=".repeat(81).bold());
 
-                for course in courses {
-                    if course.archived {
-                        println!(
-                            "{:<40}{:<30}{:<12}",
-                            course.name.bright_black(),
-                            course.id.bright_black(),
-                            course.assessment_count.to_string().bright_black()
-                        );
-                    } else {
-                        println!(
-                            "{:<40}{:<30}{:<12}",
-                            course.name.green(),
-                            course.id.blue(),
-                            course.assessment_count.to_string().yellow()
-                        )
+                    for course in courses {
+                        if course.archived {
+                            println!(
+                                "{:<40}{:<30}{:<12}",
+                                course.name.bright_black(),
+                                course.id.bright_black(),
+                                course.assessment_count.to_string().bright_black()
+                            );
+                        } else {
+                            println!(
+                                "{:<40}{:<30}{:<12}",
+                                course.name.green(),
+                                course.id.blue(),
+                                course.assessment_count.to_string().yellow()
+                            )
+                        }
                     }
                 }
+                OutputFormat::Plain => {
+                    for course in courses {
+                        println!("{}\t{}", course.id, course.name)
+                    }
+                }
+                OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
             }
         }
         Commands::ListAssessments { course_id, json } => {
