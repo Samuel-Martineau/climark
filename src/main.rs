@@ -1,39 +1,8 @@
-use std::process::Output;
+mod cli;
+use cli::{Cli, Commands, OutputFormat};
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use colored::Colorize;
-
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-    #[arg(long, env)]
-    crowdmark_session_token: String,
-}
-
-#[derive(clap::ValueEnum, Clone, Default)]
-enum OutputFormat {
-    #[default]
-    Pretty,
-    Plain,
-    Json,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    ListCourses {
-        #[arg(short, long, value_enum, default_value_t)]
-        // json: bool,
-        format: OutputFormat,
-    },
-    ListAssessments {
-        #[arg(env = "CLIMARK_DEFAULT_COURSE")]
-        course_id: String,
-        #[arg(short, long)]
-        json: bool,
-    },
-}
 
 #[tokio::main]
 async fn main() {
