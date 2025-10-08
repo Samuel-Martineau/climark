@@ -1,7 +1,9 @@
+pub mod error;
+use error::CrowdmarkError;
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use reqwest::Error;
 use serde::Deserialize;
 
 static DEFAULT_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
@@ -99,13 +101,12 @@ where
 }
 
 impl Client {
-    pub fn new(session_token: &str) -> Self {
+    pub fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
         let mut headers = reqwest::header::HeaderMap::new();
 
         headers.insert(reqwest::header::COOKIE, {
             let mut auth_value =
-                reqwest::header::HeaderValue::from_str(&format!("cm_session_id={session_token}"))
-                    .unwrap();
+                reqwest::header::HeaderValue::from_str(&format!("cm_session_id={session_token}"))?;
             auth_value.set_sensitive(true);
             auth_value
         });
@@ -113,13 +114,12 @@ impl Client {
         let client = reqwest::Client::builder()
             .user_agent(DEFAULT_USER_AGENT)
             .default_headers(headers)
-            .build()
-            .unwrap();
+            .build()?;
 
-        Self { client }
+        Ok(Self { client })
     }
 
-    pub async fn list_courses(&self) -> Result<Vec<Course>, Error> {
+    pub async fn list_courses(&self) -> Result<Vec<Course>, CrowdmarkError> {
         #[derive(Debug, serde::Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
         enum ResponseDataItem {
@@ -136,17 +136,13 @@ impl Client {
             course_archivation: OptionalData<EmptyStruct>,
         }
 
-        let resp = match self
+        let resp = self
             .client
             .get("https://app.crowdmark.com/api/v2/student/courses?include[]=course-archivation")
             .send()
             .await?
             .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, EmptyStruct>>()
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => panic!("{e}. Are you logged in?"),
-        };
+            .await?;
 
         let courses: Vec<_> = resp
             .data
@@ -173,7 +169,10 @@ impl Client {
         Ok(courses)
     }
 
-    pub async fn list_assessments(&self, course_id: &str) -> Result<Vec<Assessment>, Error> {
+    pub async fn list_assessments(
+        &self,
+        course_id: &str,
+    ) -> Result<Vec<Assessment>, CrowdmarkError> {
         #[derive(Debug, serde::Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
         enum ResponseDataItem {
@@ -215,17 +214,13 @@ impl Client {
             ExamMaster(ExamMasterData),
         }
 
-        let resp = match self
+        let resp = self
             .client
             .get(format!("https://app.crowdmark.com/api/v2/student/assignments?fields[exam-masters][]=type&fields[exam-masters][]=title&filter[course]={course_id}"))
             .send()
             .await?
             .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, IncludedDataItem>>()
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => panic!("{e}. Are you logged in?"),
-        };
+            .await?;
 
         let exam_masters: HashMap<_, _> = resp
             .included
@@ -235,7 +230,7 @@ impl Client {
             })
             .collect();
 
-        let assessments: Vec<_> = resp
+        let assessments: Result<Vec<Assessment>, CrowdmarkError> = resp
             .data
             .into_iter()
             .map(
@@ -251,10 +246,17 @@ impl Client {
                             due,
                             marks_sent_at,
                         } => {
+                            // Use `?` instead of unwrap
                             let exam_master = exam_masters
                                 .get(&relationships.exam_master.data.id)
-                                .unwrap();
-                            Assessment {
+                                .ok_or_else(|| {
+                                    CrowdmarkError::DecodeError(format!(
+                                        "Missing exam_master for id {}",
+                                        relationships.exam_master.data.id
+                                    ))
+                                })?;
+
+                            Ok(Assessment {
                                 id,
                                 title: exam_master.title.clone(),
                                 kind: match exam_master.kind {
@@ -265,13 +267,13 @@ impl Client {
                                 submitted: submitted_at,
                                 graded: marks_sent_at,
                                 score: normalized_points,
-                            }
+                            })
                         }
                     }
                 },
             )
             .collect();
 
-        Ok(assessments)
+        assessments
     }
 }

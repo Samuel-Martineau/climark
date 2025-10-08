@@ -1,6 +1,8 @@
 mod cli;
 use cli::{Cli, Commands, OutputFormat};
 
+use crowdmark::error::CrowdmarkError;
+
 use clap::Parser;
 use tabled::{
     builder::Builder,
@@ -14,11 +16,27 @@ use tabled::{
 async fn main() {
     let cli = Cli::parse();
 
-    let client = crowdmark::Client::new(&cli.crowdmark_session_token);
+    let client = crowdmark::Client::new(&cli.crowdmark_session_token).unwrap();
 
     match &cli.command {
-        Commands::ListCourses { format } => {
-            let courses = client.list_courses().await.unwrap();
+        Commands::ListCourses { format, silent } => {
+            let courses = match client.list_courses().await {
+                Ok(v) => v,
+                Err(e) => match e {
+                    CrowdmarkError::DecodeError(msg) => {
+                        if !silent {
+                            eprintln!("Decode failed. Are you logged in?: {msg}");
+                        }
+                        return;
+                    }
+                    msg => {
+                        if !silent {
+                            eprintln!("Request Error: {msg}");
+                        }
+                        return;
+                    }
+                },
+            };
             match format {
                 OutputFormat::Pretty => {
                     let mut builder = Builder::new();
@@ -65,8 +83,29 @@ async fn main() {
                 OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
             }
         }
-        Commands::ListAssessments { course_id, json } => {
-            let assessments = client.list_assessments(course_id).await.unwrap();
+        Commands::ListAssessments {
+            course_id,
+            json,
+            silent,
+        } => {
+            let assessments = match client.list_assessments(course_id).await {
+                Ok(v) => v,
+                Err(e) => match e {
+                    CrowdmarkError::DecodeError(msg) => {
+                        if !silent {
+                            eprintln!("Decode failed. Are you logged in?: {msg}");
+                        }
+                        return;
+                    }
+                    msg => {
+                        if !silent {
+                            eprintln!("Reqwest Error: {msg}");
+                        }
+                        return;
+                    }
+                },
+            };
+
             if *json {
                 println!("{}", serde_json::to_string(&assessments).unwrap());
             } else {
