@@ -85,5 +85,9 @@ async fn main() {
                 }
             }
         }
+        Commands::UploadAssessment {
+            course_id,
+            assessment_id,
+        } => {}
     }
 }

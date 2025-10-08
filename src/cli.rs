@@ -28,4 +28,9 @@ pub enum Commands {
         #[arg(short, long)]
         json: bool,
     },
+    UploadAssessment {
+        #[arg(env = "CLIMARK_DEFAULT_COURSE")]
+        course_id: String,
+        assessment_id: String,
+    },
 }

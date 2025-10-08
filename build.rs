@@ -12,13 +12,15 @@ fn main() -> Result<(), Error> {
     let mut cmd = Cli::command();
     let path = generate_to(Fish, &mut cmd, "climark", outdir)?;
 
-    let mut file = std::fs::OpenOptions::new()
-        .append(true)
-        .open(path)?;
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
 
-    writeln!(
+    write!(
         file,
-        "complete -c climark -kn \"__fish_seen_subcommand_from list-assessments\" -a \"(climark list-courses --format=plain)\""
+        r#"
+complete -c climark -f
+complete -c climark -kn "__fish_seen_subcommand_from list-assessments" -a "(climark list-courses --format=plain)"
+complete -c climark -kn "__fish_seen_subcommand_from upload-assessment" -a "(climark list-assessments --format=plain)"\
+"#
     )?;
 
     Ok(())
