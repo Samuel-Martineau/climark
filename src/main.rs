@@ -2,7 +2,13 @@ mod cli;
 use cli::{Cli, Commands, OutputFormat};
 
 use clap::Parser;
-use colored::Colorize;
+use tabled::{
+    builder::Builder,
+    settings::{
+        Color, Style,
+        object::{Columns, Object, Rows},
+    },
+};
 
 #[tokio::main]
 async fn main() {
@@ -15,32 +21,41 @@ async fn main() {
             let courses = client.list_courses().await.unwrap();
             match format {
                 OutputFormat::Pretty => {
-                    println!(
-                        "{:<40}{:<30}{:<12}",
-                        "Name".bold(),
-                        "Id".bold(),
-                        "Assessments".bold()
-                    );
+                    let mut builder = Builder::new();
+                    builder.push_record(["Name", "ID", "Assessments"]);
 
-                    println!("{}", "=".repeat(81).bold());
-
-                    for course in courses {
-                        if course.archived {
-                            println!(
-                                "{:<40}{:<30}{:<12}",
-                                course.name.bright_black(),
-                                course.id.bright_black(),
-                                course.assessment_count.to_string().bright_black()
-                            );
-                        } else {
-                            println!(
-                                "{:<40}{:<30}{:<12}",
-                                course.name.green(),
-                                course.id.blue(),
-                                course.assessment_count.to_string().yellow()
-                            );
+                    let mut last = 0;
+                    for (index, course) in courses.into_iter().enumerate() {
+                        builder.push_record([
+                            course.name,
+                            course.id,
+                            course.assessment_count.to_string(),
+                        ]);
+                        if !course.archived {
+                            last = index;
                         }
                     }
+                    let mut table = make_table(builder);
+                    table.modify(
+                        Columns::one(0)
+                            .not(Rows::one(0))
+                            .not(Rows::new((last + 2)..)),
+                        Color::FG_GREEN,
+                    );
+                    table.modify(
+                        Columns::one(1)
+                            .not(Rows::one(0))
+                            .not(Rows::new((last + 2)..)),
+                        Color::FG_BLUE,
+                    );
+                    table.modify(
+                        Columns::one(2)
+                            .not(Rows::one(0))
+                            .not(Rows::new((last + 2)..)),
+                        Color::FG_YELLOW,
+                    );
+                    table.modify(Rows::new((last + 2)..), Color::rgb_fg(128, 128, 128));
+                    println!("{table}");
                 }
                 OutputFormat::Plain => {
                     for course in courses {
@@ -55,35 +70,43 @@ async fn main() {
             if *json {
                 println!("{}", serde_json::to_string(&assessments).unwrap());
             } else {
-                println!(
-                    "{:<40}{:<30}{:<20}",
-                    "Title".bold(),
-                    "Score".bold(),
-                    "Due".bold()
-                );
-
-                println!("{}", "=".repeat(89).bold());
-
+                let mut builder = Builder::new();
+                builder.push_record(["Title", "Score (%)", "Due"]);
                 for assessment in assessments {
-                    println!(
-                        "{:<40}{:<30}{:<20}",
-                        assessment.title.green(),
+                    builder.push_record([
+                        assessment.title,
                         assessment
                             .score
                             .map(|s| format!("{:>3.0}", s * 100.0))
-                            .unwrap_or_default()
-                            .blue(),
+                            .unwrap_or_default(),
                         assessment
                             .graded
-                            .map(|g| g
-                                .with_timezone(&chrono::Local)
-                                .format("%Y-%m-%d %H:%M:%S")
-                                .to_string())
-                            .unwrap_or_default()
-                            .yellow()
-                    );
+                            .map(|g| {
+                                g.with_timezone(&chrono::Local)
+                                    .format("%Y-%m-%d %H:%M:%S")
+                                    .to_string()
+                            })
+                            .unwrap_or_default(),
+                    ]);
                 }
+                let mut table = make_table(builder);
+                table.modify(Columns::one(0).not(Rows::one(0)), Color::FG_GREEN);
+                table.modify(Columns::one(1).not(Rows::one(0)), Color::FG_BLUE);
+                table.modify(Columns::one(2).not(Rows::one(0)), Color::FG_YELLOW);
+                println!("{table}");
             }
         }
     }
+}
+
+fn make_table(b: Builder) -> tabled::Table {
+    let mut table = b.build();
+    let style = Style::rounded()
+        .remove_left()
+        .remove_right()
+        .remove_vertical()
+        .remove_top()
+        .remove_bottom();
+    table.with(style);
+    table
 }
