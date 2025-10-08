@@ -38,13 +38,13 @@ async fn main() {
                                 course.name.green(),
                                 course.id.blue(),
                                 course.assessment_count.to_string().yellow()
-                            )
+                            );
                         }
                     }
                 }
                 OutputFormat::Plain => {
                     for course in courses {
-                        println!("{}\t{}", course.id, course.name)
+                        println!("{}\t{}", course.id, course.name);
                     }
                 }
                 OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
