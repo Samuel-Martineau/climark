@@ -28,6 +28,9 @@ serde_json = "1.0.145"
 tabled = "0.20.0"
 thiserror = "2.0.17"
 tokio = { version = "1.48.0", features = ["full"] }
+rpassword = "7.4.0"
+keyring = { version = "3.6.3", features = ["linux-native-sync-persistent"] }
+whoami = "1.6.1"
 
 [build-dependencies]
 clap = { version = "4.5.48", features = ["derive", "env"] }
