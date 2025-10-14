@@ -1,6 +1,5 @@
 mod cli;
 use cli::{Cli, Commands, OutputFormat};
-
 use crowdmark::error::CrowdmarkError;
 
 use clap::Parser;
@@ -22,20 +21,12 @@ async fn main() {
         Commands::ListCourses { format, silent } => {
             let courses = match client.list_courses().await {
                 Ok(v) => v,
-                Err(e) => match e {
-                    CrowdmarkError::DecodeError(msg) => {
-                        if !silent {
-                            eprintln!("Decode failed. Are you logged in?: {msg}");
-                        }
-                        return;
+                Err(e) => {
+                    if !silent {
+                        handle_error(e);
                     }
-                    msg => {
-                        if !silent {
-                            eprintln!("Request Error: {msg}");
-                        }
-                        return;
-                    }
-                },
+                    return;
+                }
             };
             match format {
                 OutputFormat::Pretty => {
@@ -90,20 +81,12 @@ async fn main() {
         } => {
             let assessments = match client.list_assessments(course_id).await {
                 Ok(v) => v,
-                Err(e) => match e {
-                    CrowdmarkError::DecodeError(msg) => {
-                        if !silent {
-                            eprintln!("Decode failed. Are you logged in?: {msg}");
-                        }
-                        return;
+                Err(e) => {
+                    if !silent {
+                        handle_error(e);
                     }
-                    msg => {
-                        if !silent {
-                            eprintln!("Reqwest Error: {msg}");
-                        }
-                        return;
-                    }
-                },
+                    return;
+                }
             };
 
             if *json {
@@ -152,4 +135,21 @@ fn make_table(b: Builder) -> tabled::Table {
         .remove_bottom();
     table.with(style);
     table
+}
+
+fn handle_error(e: CrowdmarkError) {
+    match e {
+        CrowdmarkError::InvalidHeaderValue(msg) => {
+            eprintln!("Invalid header value. Is the session token formatted correctly?: {msg}");
+        }
+        CrowdmarkError::NotAuthenticated() => {
+            eprintln!("Error: Not Authenticated. Are you logged in?");
+        }
+        CrowdmarkError::InvalidCourseID() => {
+            eprintln!("Error: Invalid Course ID");
+        }
+        _ => {
+            eprintln!("Error: {e}");
+        }
+    }
 }

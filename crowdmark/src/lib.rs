@@ -4,7 +4,8 @@ use error::CrowdmarkError;
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 static DEFAULT_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
@@ -14,7 +15,7 @@ pub struct Client {
 }
 
 #[non_exhaustive]
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Course {
     pub id: String,
     pub name: String,
@@ -23,7 +24,7 @@ pub struct Course {
 }
 
 #[non_exhaustive]
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Assessment {
     pub id: String,
     pub title: String,
@@ -35,19 +36,19 @@ pub struct Assessment {
 }
 
 #[non_exhaustive]
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Serialize)]
 pub enum AssessmentKind {
     TakeHome,
     Proctored,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ResponseRoot<DA, DR, I> {
     data: Vec<ResponseData<DA, DR>>,
     included: Vec<IncludedData<I>>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ResponseData<A, R> {
     id: String,
 
@@ -56,7 +57,7 @@ struct ResponseData<A, R> {
     relationships: R,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct IncludedData<A> {
     id: String,
 
@@ -64,17 +65,17 @@ struct IncludedData<A> {
     attributes: A,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct RelationshipId {
     id: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct OptionalData<T> {
     data: Option<T>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct RequiredData<T> {
     data: T,
 }
@@ -86,7 +87,7 @@ fn from_raw_normalized_points<'de, D>(deserializer: D) -> Result<Option<f32>, D:
 where
     D: serde::Deserializer<'de>,
 {
-    #[derive(serde::Deserialize)]
+    #[derive(Deserialize)]
     #[serde(untagged)]
     enum RawNormalizedPoints {
         #[allow(dead_code)]
@@ -101,6 +102,22 @@ where
 }
 
 impl Client {
+    /// Creates a new [`Client`] instance using the provided session token.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_token` - The Crowdmark session token
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`Result`] containing:
+    /// * `Ok(Client)` - If the `session_token` is properly formatted.
+    /// * `Err(CrowdmarkError)` - If the `session_token` is incorrectly formatted.
+    ///
+    /// # Errors
+    ///
+    /// This function returns a [`CrowdmarkError::HeaderError`] if the provided
+    /// `session_token` is incorrectly formatted.
     pub fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
         let mut headers = reqwest::header::HeaderMap::new();
 
@@ -119,6 +136,20 @@ impl Client {
         Ok(Self { client })
     }
 
+    /// Retrieves the list of courses available to the authenticated student.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`Result`] containing:
+    /// * `Ok(Vec<Course>)` — A vector of [`Course`]
+    /// * `Err(CrowdmarkError)` — If the HTTP request fails or the response
+    ///   cannot be parsed.
+    ///
+    /// # Errors
+    ///
+    /// This function returns a [`CrowdmarkError`] if:
+    /// * The request to the Crowdmark API fails.
+    /// * The API returns an unexpected response format.
     pub async fn list_courses(&self) -> Result<Vec<Course>, CrowdmarkError> {
         #[derive(Debug, serde::Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
@@ -140,12 +171,18 @@ impl Client {
             .client
             .get("https://app.crowdmark.com/api/v2/student/courses?include[]=course-archivation")
             .send()
-            .await?
-            .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, EmptyStruct>>()
             .await?;
 
-        let courses: Vec<_> = resp
-            .data
+        if resp.status() == reqwest::StatusCode::FOUND {
+            return Err(CrowdmarkError::NotAuthenticated());
+        }
+
+        let data = resp
+            .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, EmptyStruct>>()
+            .await?
+            .data;
+
+        let courses: Vec<_> = data
             .into_iter()
             .map(
                 |ResponseData {
@@ -169,6 +206,24 @@ impl Client {
         Ok(courses)
     }
 
+    /// Retrieves the list of assessments for `course_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The course ID to retrieve assessments for.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`Result`] containing:
+    /// * `Ok(Vec<Course>)` — A vector of [`Course`]
+    /// * `Err(CrowdmarkError)` — If the HTTP request fails or the response
+    ///   cannot be parsed.
+    ///
+    /// # Errors
+    ///
+    /// This function returns a [`CrowdmarkError`] if:
+    /// * The request to the Crowdmark API fails.
+    /// * The API returns an unexpected response format.
     pub async fn list_assessments(
         &self,
         course_id: &str,
@@ -218,11 +273,23 @@ impl Client {
             .client
             .get(format!("https://app.crowdmark.com/api/v2/student/assignments?fields[exam-masters][]=type&fields[exam-masters][]=title&filter[course]={course_id}"))
             .send()
-            .await?
-            .json::<ResponseRoot<ResponseDataItem, ResponseRelationship, IncludedDataItem>>()
             .await?;
 
-        let exam_masters: HashMap<_, _> = resp
+        if resp.status() == reqwest::StatusCode::FOUND {
+            return Err(CrowdmarkError::NotAuthenticated());
+        }
+
+        let text = resp.text().await?;
+
+        let json_val: Value = serde_json::from_str(&text)?;
+        if json_val.get("included").is_none() {
+            return Err(CrowdmarkError::InvalidCourseID());
+        }
+
+        let root: ResponseRoot<ResponseDataItem, ResponseRelationship, IncludedDataItem> =
+            serde_json::from_value(json_val)?;
+
+        let exam_masters: HashMap<_, _> = root
             .included
             .into_iter()
             .map(|IncludedData { id, attributes }| match attributes {
@@ -230,7 +297,7 @@ impl Client {
             })
             .collect();
 
-        let assessments: Result<Vec<Assessment>, CrowdmarkError> = resp
+        let assessments: Result<Vec<Assessment>, CrowdmarkError> = root
             .data
             .into_iter()
             .map(
@@ -246,7 +313,6 @@ impl Client {
                             due,
                             marks_sent_at,
                         } => {
-                            // Use `?` instead of unwrap
                             let exam_master = exam_masters
                                 .get(&relationships.exam_master.data.id)
                                 .ok_or_else(|| {
