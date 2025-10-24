@@ -1,5 +1,6 @@
 mod cli;
 use cli::{Cli, Commands, OutputFormat};
+mod upload;
 use crowdmark::error::CrowdmarkError;
 
 use clap::Parser;
@@ -121,7 +122,9 @@ async fn main() {
         Commands::UploadAssessment {
             course_id,
             assessment_id,
-        } => {}
+        } => {
+            upload::upload_assessment(course_id, assessment_id).unwrap();
+        }
     }
 }
 
