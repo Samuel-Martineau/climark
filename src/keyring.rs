@@ -1,3 +1,4 @@
+use crowdmark::error::CrowdmarkError;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -9,36 +10,26 @@ pub struct LoginDetails {
     password: String,
 }
 
-pub fn get_login() -> LoginDetails {
-    let entry = match Entry::new("climark", &whoami::username()) {
-        Ok(entry) => entry,
-        Err(err) => {
-            eprintln!("Couldn't create keyring entry: {err}");
-            std::process::exit(1)
-        }
-    };
-    let details = match entry.get_password() {
-        Ok(password) => {
-            let details: LoginDetails =
-                serde_json::from_str(&password).expect("Failed to decode keyring JSON");
-            details
-        }
-        Err(_) => {
-            let details = LoginDetails {
-                email: get_email(),
-                password: get_password(),
-            };
+pub async fn get_token() -> Result<String, CrowdmarkError> {
+    let entry =
+        Entry::new("climark", &whoami::username()).expect("Couldn't create keyring entry: {err}");
+    let details = if let Ok(password) = entry.get_password() {
+        let details: LoginDetails =
+            serde_json::from_str(&password).expect("Failed to decode keyring JSON");
+        details
+    } else {
+        let details = LoginDetails {
+            email: get_email(),
+            password: get_password(),
+        };
 
-            entry
-                .set_password(
-                    &serde_json::to_string(&details).expect("Failed to encode keyring JSON"),
-                )
-                .expect("Failed to set keyring password");
-            details
-        }
+        entry
+            .set_password(&serde_json::to_string(&details).expect("Failed to encode keyring JSON"))
+            .expect("Failed to set keyring password");
+        details
     };
 
-    details
+    crowdmark::login::get_token(details.email, details.password).await
 }
 
 fn get_email() -> String {

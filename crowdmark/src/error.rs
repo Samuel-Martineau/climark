@@ -7,9 +7,9 @@ pub enum CrowdmarkError {
     #[error("Not authenticated")]
     NotAuthenticated(String),
     #[error("Request error")]
-    ReqwestError(#[source] reqwest::Error),
+    Reqwest(#[source] reqwest::Error),
     #[error("JSON error")]
-    DecodeError(String),
+    Decode(String),
     #[error("Invalid course ID")]
     InvalidCourseID(),
     #[error("Invalid assessment ID")]
@@ -17,24 +17,26 @@ pub enum CrowdmarkError {
     #[error("Too many pages submitted")]
     TooManyPages(),
     #[error("Regex compile error")]
-    RegexError(#[from] regex::Error),
+    Regex(#[from] regex::Error),
     #[error("Invalid S3 Policy Response")]
-    S3PolicyError(),
+    S3Policy(),
     #[error("Failed to upload to S3")]
-    S3UploadError(String),
+    S3Upload(String),
     #[error("Failed to upload to Crowdmark assignment")]
-    AssignmentUploadError(String),
+    AssignmentUpload(String),
     #[error("Failed to submit Crowdmark assignment")]
-    AssignmentSubmitError(String),
+    AssignmentSubmit(String),
+    #[error("Failed to login")]
+    Login(),
 }
 
 impl From<reqwest::Error> for CrowdmarkError {
     fn from(err: reqwest::Error) -> Self {
         if err.is_decode() {
             let msg = err.to_string();
-            CrowdmarkError::DecodeError(msg)
+            CrowdmarkError::Decode(msg)
         } else {
-            CrowdmarkError::ReqwestError(err)
+            CrowdmarkError::Reqwest(err)
         }
     }
 }
@@ -42,6 +44,6 @@ impl From<reqwest::Error> for CrowdmarkError {
 impl From<serde_json::Error> for CrowdmarkError {
     fn from(err: serde_json::Error) -> Self {
         let msg = err.to_string();
-        CrowdmarkError::DecodeError(msg)
+        CrowdmarkError::Decode(msg)
     }
 }

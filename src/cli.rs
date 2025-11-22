@@ -3,7 +3,7 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
     #[arg(long, env)]
-    pub crowdmark_session_token: String,
+    pub crowdmark_session_token: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Default)]

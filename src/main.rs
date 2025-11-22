@@ -2,6 +2,7 @@ mod assessments;
 mod cli;
 mod courses;
 mod error;
+mod keyring;
 mod upload;
 
 use clap::Parser;
@@ -13,9 +14,12 @@ use tabled::{builder::Builder, settings::Style};
 async fn main() {
     let cli = Cli::parse();
 
-    let client = crowdmark::Client::new(&cli.crowdmark_session_token)
-        .await
-        .unwrap();
+    let token = match &cli.crowdmark_session_token {
+        Some(t) => t,
+        None => &keyring::get_token().await.unwrap(),
+    };
+
+    let client = crowdmark::Client::new(token).await.unwrap();
 
     match &cli.command {
         Commands::ListCourses { format, silent } => {

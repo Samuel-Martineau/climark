@@ -197,19 +197,19 @@ impl crate::Client {
 
             let bucket = s3_policy_response["bucket"]
                 .as_str()
-                .ok_or(CrowdmarkError::S3PolicyError())?;
+                .ok_or(CrowdmarkError::S3Policy())?;
             let key = s3_policy_response["key"]
                 .as_str()
-                .ok_or(CrowdmarkError::S3PolicyError())?;
+                .ok_or(CrowdmarkError::S3Policy())?;
             let fields = s3_policy_response["fields"]
                 .as_array()
-                .ok_or(CrowdmarkError::S3PolicyError())?;
+                .ok_or(CrowdmarkError::S3Policy())?;
 
             let mut form = multipart::Form::new();
 
             for field in fields {
-                let name = field[0].as_str().ok_or(CrowdmarkError::S3PolicyError())?;
-                let value = field[1].as_str().ok_or(CrowdmarkError::S3PolicyError())?;
+                let name = field[0].as_str().ok_or(CrowdmarkError::S3Policy())?;
+                let value = field[1].as_str().ok_or(CrowdmarkError::S3Policy())?;
                 form = form.text(name.to_string(), value.to_string());
             }
 
@@ -230,7 +230,7 @@ impl crate::Client {
                 .send()
                 .await?
                 .error_for_status()
-                .map_err(|msg| CrowdmarkError::S3UploadError(msg.to_string()))?;
+                .map_err(|msg| CrowdmarkError::S3Upload(msg.to_string()))?;
 
             let body = serde_json::json!({
                 "data": {
@@ -260,7 +260,7 @@ impl crate::Client {
                 .send()
                 .await?
                 .error_for_status()
-                .map_err(|msg| CrowdmarkError::AssignmentUploadError(msg.to_string()))?;
+                .map_err(|msg| CrowdmarkError::AssignmentUpload(msg.to_string()))?;
         }
         Ok(())
     }
@@ -329,7 +329,7 @@ impl crate::Client {
 
         let signature = s3_policy_response["upload_signature"]
             .as_str()
-            .ok_or(CrowdmarkError::S3PolicyError())?
+            .ok_or(CrowdmarkError::S3Policy())?
             .to_string();
 
         let output = TargetOutput { pages, signature };
@@ -344,7 +344,7 @@ impl crate::Client {
             .send()
             .await?
             .error_for_status()
-            .map_err(|msg| CrowdmarkError::AssignmentSubmitError(msg.to_string()))?;
+            .map_err(|msg| CrowdmarkError::AssignmentSubmit(msg.to_string()))?;
 
         Ok(())
     }

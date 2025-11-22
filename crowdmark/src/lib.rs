@@ -1,4 +1,5 @@
 pub mod error;
+pub mod login;
 mod upload;
 
 use chrono::{DateTime, Utc};
@@ -330,7 +331,7 @@ impl Client {
                         } => {
                             let exam_master = exam_masters
                                 .get(&relationships.exam_master.data.id)
-                                .ok_or(CrowdmarkError::DecodeError(format!(
+                                .ok_or(CrowdmarkError::Decode(format!(
                                     "Missing exam_master for id {}",
                                     relationships.exam_master.data.id
                                 )))?;
