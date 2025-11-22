@@ -1,50 +1,46 @@
+use crate::error::ClimarkError;
 use crowdmark::Client;
-use crowdmark::error::CrowdmarkError;
 use hayro::{Pdf, RenderSettings, render};
 use hayro_interpret::InterpreterSettings;
 use image::ImageFormat;
 use std::io::Cursor;
-use std::io::{self, IsTerminal, Read};
+use std::io::{self, Read};
 use std::sync::Arc;
 
 pub async fn upload_assessment(
     client: Client,
     assessment_id: &str,
     submit: &bool,
-) -> Result<(), CrowdmarkError> {
+) -> Result<(), ClimarkError> {
     let mut buffer = Vec::new();
-    if io::stdin().is_terminal() {
-        println!("stdin is empty!");
-        std::process::exit(1);
-    }
-    io::stdin().read_to_end(&mut buffer).unwrap();
+    io::stdin()
+        .read_to_end(&mut buffer)
+        .map_err(|_| ClimarkError::StdinRead())?;
     let data = Arc::new(buffer);
-    let pdf = Pdf::new(data).unwrap();
+    let pdf = Pdf::new(data).map_err(|_| ClimarkError::PdfParse())?;
     let interpreter_settings = InterpreterSettings::default();
     let render_settings = RenderSettings {
-        x_scale: 1.0,
-        y_scale: 1.0,
-        ..Default::default()
+        x_scale: 3.0,
+        y_scale: 3.0,
+        width: None,
+        height: None,
     };
 
     let mut pages: Vec<(usize, Vec<u8>)> = Vec::new();
 
-    println!("Rendering pages...");
     for (idx, page) in pdf.pages().iter().enumerate() {
         let png = render(page, &interpreter_settings, &render_settings).take_png();
-        let img = image::load_from_memory(&png).unwrap();
+        let img = image::load_from_memory(&png).map_err(|_| ClimarkError::PngDecode())?;
 
-        let mut jpeg_bytes = Vec::new();
-        img.write_to(&mut Cursor::new(&mut jpeg_bytes), ImageFormat::Jpeg)
-            .unwrap();
+        let mut jpeg_data = Vec::new();
+        img.write_to(&mut Cursor::new(&mut jpeg_data), ImageFormat::Jpeg)
+            .map_err(|_| ClimarkError::JpegEncode())?;
 
-        pages.push((idx + 1, jpeg_bytes));
+        pages.push((idx + 1, jpeg_data));
     }
 
-    println!("Uploading pages...");
     client.upload_assessment(assessment_id, pages).await?;
     if *submit {
-        println!("Submitting assessment...");
         client.submit_assessment(assessment_id).await?;
     }
     Ok(())

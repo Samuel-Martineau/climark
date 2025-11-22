@@ -360,6 +360,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tabled",
+ "thiserror",
  "tokio",
 ]
 

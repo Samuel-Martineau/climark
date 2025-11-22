@@ -1,7 +1,8 @@
 mod cli;
+mod error;
 use cli::{Cli, Commands, OutputFormat};
+use error::ClimarkError;
 mod upload;
-use crowdmark::error::CrowdmarkError;
 
 use clap::Parser;
 use tabled::{
@@ -26,7 +27,7 @@ async fn main() {
                 Ok(v) => v,
                 Err(e) => {
                     if !silent {
-                        handle_error(e);
+                        handle_error(&e.into());
                     }
                     return;
                 }
@@ -86,7 +87,7 @@ async fn main() {
                 Ok(v) => v,
                 Err(e) => {
                     if !silent {
-                        handle_error(e);
+                        handle_error(&e.into());
                     }
                     return;
                 }
@@ -96,10 +97,11 @@ async fn main() {
                 println!("{}", serde_json::to_string(&assessments).unwrap());
             } else {
                 let mut builder = Builder::new();
-                builder.push_record(["Title", "Score (%)", "Due"]);
+                builder.push_record(["ID", "Title", "Score (%)", "Due"]);
                 for assessment in assessments {
                     builder.push_record([
                         assessment.id,
+                        assessment.title,
                         assessment
                             .score
                             .map(|s| format!("{:>3.0}", s * 100.0))
@@ -118,17 +120,23 @@ async fn main() {
                 table.modify(Columns::one(0).not(Rows::one(0)), Color::FG_GREEN);
                 table.modify(Columns::one(1).not(Rows::one(0)), Color::FG_BLUE);
                 table.modify(Columns::one(2).not(Rows::one(0)), Color::FG_YELLOW);
+                table.modify(Columns::one(3).not(Rows::one(0)), Color::FG_MAGENTA);
                 println!("{table}");
             }
         }
         Commands::UploadAssessment {
             assessment_id,
+            silent,
             submit,
-        } => {
-            upload::upload_assessment(client, assessment_id, submit)
-                .await
-                .unwrap();
-        }
+        } => match upload::upload_assessment(client, assessment_id, submit).await {
+            Ok(v) => v,
+            Err(e) => {
+                if !silent {
+                    handle_error(&e);
+                }
+                return;
+            }
+        },
     }
 }
 
@@ -144,19 +152,6 @@ fn make_table(b: Builder) -> tabled::Table {
     table
 }
 
-fn handle_error(e: CrowdmarkError) {
-    match e {
-        CrowdmarkError::InvalidHeaderValue(msg) => {
-            eprintln!("Invalid header value. Is the session token formatted correctly?: {msg}");
-        }
-        CrowdmarkError::NotAuthenticated(msg) => {
-            eprintln!("Error: Not Authenticated. Are you logged in?: {msg}");
-        }
-        CrowdmarkError::InvalidCourseID() => {
-            eprintln!("Error: Invalid Course ID");
-        }
-        _ => {
-            eprintln!("Error: {e}");
-        }
-    }
+fn handle_error(e: &ClimarkError) {
+    eprintln!("Error: {e}");
 }

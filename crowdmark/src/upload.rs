@@ -150,7 +150,6 @@ impl crate::Client {
         self.clear_pages(&root).await?;
 
         for (question, img) in pages {
-            println!("Uploading to question {question}...");
             let question_id = root.included.iter().find_map(|inc| {
                 if inc.type_ == "assignment-questions" && inc.attributes.sequence == Some(question)
                 {
@@ -182,17 +181,19 @@ impl crate::Client {
 
             let bucket_url = s3_policy_response["bucket"]
                 .as_str()
-                .expect("bucket URL missing");
-            let key = s3_policy_response["key"].as_str().expect("key missing");
+                .ok_or(CrowdmarkError::S3PolicyError())?;
+            let key = s3_policy_response["key"]
+                .as_str()
+                .ok_or(CrowdmarkError::S3PolicyError())?;
             let fields = s3_policy_response["fields"]
                 .as_array()
-                .expect("fields missing");
+                .ok_or(CrowdmarkError::S3PolicyError())?;
 
             let mut form = multipart::Form::new();
 
             for field in fields {
-                let name = field[0].as_str().unwrap();
-                let value = field[1].as_str().unwrap();
+                let name = field[0].as_str().ok_or(CrowdmarkError::S3PolicyError())?;
+                let value = field[1].as_str().ok_or(CrowdmarkError::S3PolicyError())?;
                 form = form.text(name.to_string(), value.to_string());
             }
 
@@ -208,7 +209,13 @@ impl crate::Client {
                     .mime_str("image/jpeg")?,
             );
 
-            self.client.post(bucket_url).multipart(form).send().await?;
+            self.client
+                .post(bucket_url)
+                .multipart(form)
+                .send()
+                .await?
+                .error_for_status()
+                .map_err(|msg| CrowdmarkError::S3UploadError(msg.to_string()))?;
 
             let body = serde_json::json!({
                 "data": {
@@ -236,7 +243,9 @@ impl crate::Client {
                 .header("X-Csrf-Token", self.csrf.clone())
                 .json(&body)
                 .send()
-                .await?;
+                .await?
+                .error_for_status()
+                .map_err(|msg| CrowdmarkError::AssignmentUploadError(msg.to_string()))?;
         }
         Ok(())
     }
@@ -306,7 +315,8 @@ impl crate::Client {
 
         let signature = s3_policy_response["upload_signature"]
             .as_str()
-            .expect("bucket URL missing");
+            .ok_or(CrowdmarkError::S3PolicyError())?;
+
         let output = TargetOutput {
             pages,
             signature: signature.to_string(),
@@ -320,7 +330,9 @@ impl crate::Client {
             .json(&output)
             .header("X-Csrf-Token", self.csrf.clone())
             .send()
-            .await?;
+            .await?
+            .error_for_status()
+            .map_err(|msg| CrowdmarkError::AssignmentSubmitError(msg.to_string()))?;
 
         Ok(())
     }

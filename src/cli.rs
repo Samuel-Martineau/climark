@@ -18,10 +18,10 @@ pub enum OutputFormat {
 pub enum Commands {
     ListCourses {
         // json: bool,
-        #[arg(short, long)]
-        silent: bool,
         #[arg(short, long, value_enum, default_value_t)]
         format: OutputFormat,
+        #[arg(short, long)]
+        silent: bool,
     },
     ListAssessments {
         #[arg(env = "CLIMARK_DEFAULT_COURSE")]
@@ -33,6 +33,8 @@ pub enum Commands {
     },
     UploadAssessment {
         assessment_id: String,
+        #[arg(long)]
+        silent: bool,
         #[arg(short, long)]
         submit: bool,
     },

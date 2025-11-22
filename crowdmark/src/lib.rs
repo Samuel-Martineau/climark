@@ -137,10 +137,9 @@ impl Client {
         let res = client
             .get("https://app.crowdmark.com/student")
             .send()
-            .await
-            .unwrap();
-        let html = res.text().await.unwrap();
-        let re = Regex::new(r#"<meta\s+name="csrf-token"\s+content="([^"]+)""#).unwrap();
+            .await?;
+        let html = res.text().await?;
+        let re = Regex::new(r#"<meta\s+name="csrf-token"\s+content="([^"]+)""#)?;
         let csrf = match re.captures(&html) {
             Some(captures) => captures[1].to_string(),
             None => {
