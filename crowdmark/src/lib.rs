@@ -286,24 +286,20 @@ impl Client {
             ExamMaster(ExamMasterData),
         }
 
-        let resp = self
+        let json_val: Value = serde_json::from_str(
+            &self
             .client
             .get(format!("https://app.crowdmark.com/api/v2/student/assignments?fields[exam-masters][]=type&fields[exam-masters][]=title&filter[course]={course_id}"))
             .send()
-            .await?;
+            .await?
+            .error_for_status()
+            .map_err(|e| CrowdmarkError::NotAuthenticated(e.to_string()))?
+            .text()
+            .await?)?;
 
-        if resp.status() == reqwest::StatusCode::FOUND {
-            return Err(CrowdmarkError::NotAuthenticated(
-                "Could not get assessments".to_string(),
-            ));
-        }
-
-        let text = resp.text().await?;
-
-        let json_val: Value = serde_json::from_str(&text)?;
-        if json_val.get("included").is_none() {
-            return Err(CrowdmarkError::InvalidCourseID());
-        }
+        json_val
+            .get("included")
+            .ok_or(CrowdmarkError::InvalidCourseID())?;
 
         let root: ResponseRoot<ResponseDataItem, ResponseRelationship, IncludedDataItem> =
             serde_json::from_value(json_val)?;
@@ -334,12 +330,10 @@ impl Client {
                         } => {
                             let exam_master = exam_masters
                                 .get(&relationships.exam_master.data.id)
-                                .ok_or_else(|| {
-                                    CrowdmarkError::DecodeError(format!(
-                                        "Missing exam_master for id {}",
-                                        relationships.exam_master.data.id
-                                    ))
-                                })?;
+                                .ok_or(CrowdmarkError::DecodeError(format!(
+                                    "Missing exam_master for id {}",
+                                    relationships.exam_master.data.id
+                                )))?;
 
                             Ok(Assessment {
                                 id: relationships.exam_master.data.id,

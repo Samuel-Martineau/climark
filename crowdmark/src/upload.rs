@@ -50,6 +50,11 @@ struct RelationData {
 }
 
 impl crate::Client {
+    /// Starts drafting  an assessment.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CrowdmarkError` if the request to Crowdmark fails.
     pub async fn start_drafting(&self, assessment_id: &str) -> Result<(), CrowdmarkError> {
         self.client.post(format!("https://app.crowdmark.com/api/v2/student/assignments/{assessment_id}/start-drafting"))
             .header("X-Csrf-Token", self.csrf.clone())
@@ -58,17 +63,14 @@ impl crate::Client {
     }
 
     async fn clear_pages(&self, root: &AssessResponse) -> Result<(), CrowdmarkError> {
-        let page_uuids: Vec<String> = root
+        for page in root
             .included
             .iter()
-            .filter(|item| item.type_ == "assignment-pages")
-            .map(|item| item.id.clone())
-            .collect();
-
-        for uuid in page_uuids {
+            .filter(|i| i.type_ == "assignment-pages")
+        {
             let body = serde_json::json!({
                 "data": {
-                    "id": uuid,
+                    "id": page.id,
                     "attributes": {
                         "state": "pending_delete",
                     },
@@ -85,7 +87,8 @@ impl crate::Client {
             });
             self.client
                 .patch(format!(
-                    "https://app.crowdmark.com/api/v2/student/assignment-pages/{uuid}"
+                    "https://app.crowdmark.com/api/v2/student/assignment-pages/{}",
+                    page.id
                 ))
                 .header("Content-Type", "application/vnd.api+json")
                 .json(&body)
@@ -93,75 +96,88 @@ impl crate::Client {
                 .send()
                 .await?;
         }
-        for q in &root.included {
-            if q.type_ == "assignment-questions" {
-                let body = serde_json::json!({
-                    "data": {
-                        "id": q.id,
-                        "relationships": {
-                            "anchored-to-exam-page": {
-                                "data": Value::Null,
-                            },
-                            "assignment": {
-                                "data": {
-                                    "id": root.data.id,
-                                    "type": "assignments",
-                                }
-                                }
+        for question in root
+            .included
+            .iter()
+            .filter(|i| i.type_ == "assignment-questions")
+        {
+            let body = serde_json::json!({
+                "data": {
+                    "id": question.id,
+                    "relationships": {
+                        "anchored-to-exam-page": {
+                            "data": Value::Null,
                         },
-                        "type": "assignment-questions"
-                    }
-                });
-                self.client
-                    .patch(format!(
-                        "https://app.crowdmark.com/api/v2/student/assignment-questions/{}",
-                        q.id
-                    ))
-                    .header("Content-Type", "application/vnd.api+json")
-                    .json(&body)
-                    .header("X-Csrf-Token", self.csrf.clone())
-                    .send()
-                    .await?;
-            }
+                        "assignment": {
+                            "data": {
+                                "id": root.data.id,
+                                "type": "assignments",
+                            }
+                            }
+                    },
+                    "type": "assignment-questions"
+                }
+            });
+            self.client
+                .patch(format!(
+                    "https://app.crowdmark.com/api/v2/student/assignment-questions/{}",
+                    question.id
+                ))
+                .header("Content-Type", "application/vnd.api+json")
+                .json(&body)
+                .header("X-Csrf-Token", self.csrf.clone())
+                .send()
+                .await?;
         }
         Ok(())
     }
 
+    async fn fetch_assessment(
+        &self,
+        assessment_id: &str,
+    ) -> Result<AssessResponse, CrowdmarkError> {
+        let resp = self
+            .client
+            .get(format!(
+                "https://app.crowdmark.com/api/v2/student/assignments/{assessment_id}?fields[exam-masters][]=type&fields[exam-masters][]=title",
+            ))
+            .send()
+            .await?;
+        let text = resp.text().await?;
+        let json_val: Value = serde_json::from_str(&text)?;
+        if json_val.get("included").is_none() {
+            return Err(CrowdmarkError::InvalidAssessmentID());
+        }
+        Ok(serde_json::from_value(json_val)?)
+    }
+
+    /// Uploads pages for an assessment.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CrowdmarkError` if:
+    /// - The assessment ID is invalid.
+    /// - There are too many pages or a page is missing.
+    /// - Requests to S3 or Crowdmark fail.
     pub async fn upload_assessment(
         &self,
         assessment_id: &str,
         pages: Vec<(usize, Vec<u8>)>,
     ) -> Result<(), CrowdmarkError> {
-        let resp = self
-            .client
-            .get(format!("https://app.crowdmark.com/api/v2/student/assignments/{assessment_id}?fields[exam-masters][]=type&fields[exam-masters][]=title"))
-            .send()
-            .await?;
-        let text = resp.text().await?;
-
-        let json_val: serde_json::Value = serde_json::from_str(&text)?;
-        if json_val.get("included").is_none() {
-            return Err(CrowdmarkError::InvalidAssessmentID());
-        }
-
-        let root: AssessResponse = serde_json::from_value(json_val)?;
+        let root = self.fetch_assessment(assessment_id).await?;
         let assignment_id = root.data.id.clone();
         self.start_drafting(&assignment_id).await?;
         self.clear_pages(&root).await?;
 
         for (question, img) in pages {
-            let question_id = root.included.iter().find_map(|inc| {
-                if inc.type_ == "assignment-questions" && inc.attributes.sequence == Some(question)
-                {
-                    Some(inc.id.clone())
-                } else {
-                    None
-                }
-            });
-
-            let Some(question_id) = question_id else {
-                return Err(CrowdmarkError::TooManyPages());
-            };
+            let question_id = root
+                .included
+                .iter()
+                .find(|i| {
+                    i.type_ == "assignment-questions" && i.attributes.sequence == Some(question)
+                })
+                .map(|i| i.id.clone())
+                .ok_or(CrowdmarkError::TooManyPages())?;
 
             let uuid = Uuid::new_v4().to_string();
 
@@ -179,7 +195,7 @@ impl crate::Client {
                 .json::<serde_json::Value>()
                 .await?;
 
-            let bucket_url = s3_policy_response["bucket"]
+            let bucket = s3_policy_response["bucket"]
                 .as_str()
                 .ok_or(CrowdmarkError::S3PolicyError())?;
             let key = s3_policy_response["key"]
@@ -200,17 +216,16 @@ impl crate::Client {
             form = form
                 .text("key", key.to_string())
                 .text("Content-Type", "image/jpeg")
-                .text("x-amz-meta-original-filename", assignment_id.clone());
-
-            form = form.part(
-                "file",
-                multipart::Part::bytes(img.clone())
-                    .file_name(assignment_id.clone())
-                    .mime_str("image/jpeg")?,
-            );
+                .text("x-amz-meta-original-filename", assignment_id.clone())
+                .part(
+                    "file",
+                    multipart::Part::bytes(img.clone())
+                        .file_name(assignment_id.clone())
+                        .mime_str("image/jpeg")?,
+                );
 
             self.client
-                .post(bucket_url)
+                .post(bucket)
                 .multipart(form)
                 .send()
                 .await?
@@ -250,6 +265,14 @@ impl crate::Client {
         Ok(())
     }
 
+    /// Submits an assessment.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CrowdmarkError` if:
+    /// - The assessment cannot be fetched.
+    /// - Generating the submission payload fails.
+    /// - The submission request fails.
     pub async fn submit_assessment(&self, assessment_id: &str) -> Result<(), CrowdmarkError> {
         #[derive(Debug, Serialize)]
         struct TargetOutput {
@@ -266,23 +289,14 @@ impl crate::Client {
             number: i64,
         }
 
-        let resp = self
-            .client
-            .get(format!("https://app.crowdmark.com/api/v2/student/assignments/{assessment_id}?fields[exam-masters][]=type&fields[exam-masters][]=title"))
-            .send().await?;
-        let text = resp.text().await?;
+        let root = self.fetch_assessment(assessment_id).await?;
 
-        let root: AssessResponse = serde_json::from_str(&text)?;
-
-        let mut pages = Vec::new();
-
-        for item in root.included {
-            if item.type_ == "assignment-pages" {
-                let filename = item.attributes.filename.unwrap_or_default();
-                let uuid = item.attributes.uuid.unwrap_or_default();
-                let number = item.attributes.number.unwrap_or_default();
-
-                let question_id = item
+        let pages: Vec<_> = root
+            .included
+            .into_iter()
+            .filter(|i| i.type_ == "assignment-pages")
+            .map(|i| {
+                let question_id = i
                     .relationships
                     .as_ref()
                     .and_then(|r| r.question.as_ref())
@@ -294,15 +308,15 @@ impl crate::Client {
                     })
                     .unwrap_or_default();
 
-                pages.push(TargetPage {
-                    id: item.id,
+                TargetPage {
+                    id: i.id,
                     question_id,
-                    filename,
-                    uuid,
-                    number,
-                });
-            }
-        }
+                    filename: i.attributes.filename.unwrap_or_default(),
+                    uuid: i.attributes.uuid.unwrap_or_default(),
+                    number: i.attributes.number.unwrap_or_default(),
+                }
+            })
+            .collect();
 
         let s3_policy_response = self
             .client
@@ -315,17 +329,15 @@ impl crate::Client {
 
         let signature = s3_policy_response["upload_signature"]
             .as_str()
-            .ok_or(CrowdmarkError::S3PolicyError())?;
+            .ok_or(CrowdmarkError::S3PolicyError())?
+            .to_string();
 
-        let output = TargetOutput {
-            pages,
-            signature: signature.to_string(),
-        };
+        let output = TargetOutput { pages, signature };
 
         self.client
             .put(format!(
                 "https://app.crowdmark.com/api/v2/student/assignments/{}",
-                &root.data.id
+                root.data.id
             ))
             .json(&output)
             .header("X-Csrf-Token", self.csrf.clone())

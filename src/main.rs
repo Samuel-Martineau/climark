@@ -1,17 +1,13 @@
+mod assessments;
 mod cli;
+mod courses;
 mod error;
-use cli::{Cli, Commands, OutputFormat};
-use error::ClimarkError;
 mod upload;
 
 use clap::Parser;
-use tabled::{
-    builder::Builder,
-    settings::{
-        Color, Style,
-        object::{Columns, Object, Rows},
-    },
-};
+use cli::{Cli, Commands, OutputFormat};
+use error::ClimarkError;
+use tabled::{builder::Builder, settings::Style};
 
 #[tokio::main]
 async fn main() {
@@ -23,120 +19,24 @@ async fn main() {
 
     match &cli.command {
         Commands::ListCourses { format, silent } => {
-            let courses = match client.list_courses().await {
-                Ok(v) => v,
-                Err(e) => {
-                    if !silent {
-                        handle_error(&e.into());
-                    }
-                    return;
-                }
-            };
-            match format {
-                OutputFormat::Pretty => {
-                    let mut builder = Builder::new();
-                    builder.push_record(["Name", "ID", "Assessments"]);
-
-                    let mut last = 0;
-                    for (index, course) in courses.into_iter().enumerate() {
-                        builder.push_record([
-                            course.name,
-                            course.id,
-                            course.assessment_count.to_string(),
-                        ]);
-                        if !course.archived {
-                            last = index;
-                        }
-                    }
-                    let mut table = make_table(builder);
-                    table.modify(
-                        Columns::one(0)
-                            .not(Rows::one(0))
-                            .not(Rows::new((last + 2)..)),
-                        Color::FG_GREEN,
-                    );
-                    table.modify(
-                        Columns::one(1)
-                            .not(Rows::one(0))
-                            .not(Rows::new((last + 2)..)),
-                        Color::FG_BLUE,
-                    );
-                    table.modify(
-                        Columns::one(2)
-                            .not(Rows::one(0))
-                            .not(Rows::new((last + 2)..)),
-                        Color::FG_YELLOW,
-                    );
-                    table.modify(Rows::new((last + 2)..), Color::rgb_fg(128, 128, 128));
-                    println!("{table}");
-                }
-                OutputFormat::Plain => {
-                    for course in courses {
-                        println!("{}\t{}", course.id, course.name);
-                    }
-                }
-                OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
-            }
+            handle_error(courses::list_courses(client, format).await, *silent);
         }
         Commands::ListAssessments {
             course_id,
             json,
             silent,
-        } => {
-            let assessments = match client.list_assessments(course_id).await {
-                Ok(v) => v,
-                Err(e) => {
-                    if !silent {
-                        handle_error(&e.into());
-                    }
-                    return;
-                }
-            };
-
-            if *json {
-                println!("{}", serde_json::to_string(&assessments).unwrap());
-            } else {
-                let mut builder = Builder::new();
-                builder.push_record(["ID", "Title", "Score (%)", "Due"]);
-                for assessment in assessments {
-                    builder.push_record([
-                        assessment.id,
-                        assessment.title,
-                        assessment
-                            .score
-                            .map(|s| format!("{:>3.0}", s * 100.0))
-                            .unwrap_or_default(),
-                        assessment
-                            .graded
-                            .map(|g| {
-                                g.with_timezone(&chrono::Local)
-                                    .format("%Y-%m-%d %H:%M:%S")
-                                    .to_string()
-                            })
-                            .unwrap_or_default(),
-                    ]);
-                }
-                let mut table = make_table(builder);
-                table.modify(Columns::one(0).not(Rows::one(0)), Color::FG_GREEN);
-                table.modify(Columns::one(1).not(Rows::one(0)), Color::FG_BLUE);
-                table.modify(Columns::one(2).not(Rows::one(0)), Color::FG_YELLOW);
-                table.modify(Columns::one(3).not(Rows::one(0)), Color::FG_MAGENTA);
-                println!("{table}");
-            }
-        }
+        } => handle_error(
+            assessments::list_assessments(client, course_id, json).await,
+            *silent,
+        ),
         Commands::UploadAssessment {
             assessment_id,
             silent,
             submit,
-        } => match upload::upload_assessment(client, assessment_id, submit).await {
-            Ok(v) => v,
-            Err(e) => {
-                if !silent {
-                    handle_error(&e);
-                }
-                return;
-            }
-        },
+        } => handle_error(
+            upload::upload_assessment(client, assessment_id, submit).await,
+            *silent,
+        ),
     }
 }
 
@@ -152,6 +52,10 @@ fn make_table(b: Builder) -> tabled::Table {
     table
 }
 
-fn handle_error(e: &ClimarkError) {
-    eprintln!("Error: {e}");
+fn handle_error(result: Result<(), ClimarkError>, silent: bool) {
+    if let Err(e) = result
+        && !silent
+    {
+        eprintln!("Error: {e}");
+    }
 }

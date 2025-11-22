@@ -26,18 +26,21 @@ pub async fn upload_assessment(
         height: None,
     };
 
-    let mut pages: Vec<(usize, Vec<u8>)> = Vec::new();
+    let pages = pdf
+        .pages()
+        .iter()
+        .enumerate()
+        .map(|(idx, page)| {
+            let png = render(page, &interpreter_settings, &render_settings).take_png();
+            let img = image::load_from_memory(&png).map_err(|_| ClimarkError::PngDecode())?;
 
-    for (idx, page) in pdf.pages().iter().enumerate() {
-        let png = render(page, &interpreter_settings, &render_settings).take_png();
-        let img = image::load_from_memory(&png).map_err(|_| ClimarkError::PngDecode())?;
+            let mut jpeg_data = Vec::new();
+            img.write_to(&mut Cursor::new(&mut jpeg_data), ImageFormat::Jpeg)
+                .map_err(|_| ClimarkError::JpegEncode())?;
 
-        let mut jpeg_data = Vec::new();
-        img.write_to(&mut Cursor::new(&mut jpeg_data), ImageFormat::Jpeg)
-            .map_err(|_| ClimarkError::JpegEncode())?;
-
-        pages.push((idx + 1, jpeg_data));
-    }
+            Ok((idx + 1, jpeg_data))
+        })
+        .collect::<Result<Vec<_>, ClimarkError>>()?;
 
     client.upload_assessment(assessment_id, pages).await?;
     if *submit {
