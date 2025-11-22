@@ -1,4 +1,4 @@
-use crowdmark::error::CrowdmarkError;
+use crate::error::ClimarkError;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -10,7 +10,7 @@ pub struct LoginDetails {
     password: String,
 }
 
-pub async fn get_token() -> Result<String, CrowdmarkError> {
+pub async fn get_token() -> Result<String, ClimarkError> {
     let entry =
         Entry::new("climark", &whoami::username()).expect("Couldn't create keyring entry: {err}");
     let details = if let Ok(password) = entry.get_password() {
@@ -29,7 +29,8 @@ pub async fn get_token() -> Result<String, CrowdmarkError> {
         details
     };
 
-    crowdmark::login::get_token(details.email, details.password).await
+    let token = crowdmark::login::get_token(details.email, details.password).await?;
+    Ok(token)
 }
 
 fn get_email() -> String {
@@ -47,4 +48,10 @@ fn get_password() -> String {
     print!("Please enter your password: ");
     io::stdout().flush().unwrap();
     rpassword::read_password().expect("Failed to read password")
+}
+
+pub async fn login() -> Result<(), ClimarkError> {
+    let token = get_token().await?;
+    println!("export CROWDMARK_SESSION_TOKEN={token}");
+    Ok(())
 }

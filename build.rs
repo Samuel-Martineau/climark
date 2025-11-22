@@ -24,7 +24,6 @@ fn main() -> Result<(), Error> {
         r#"
 complete -c climark -f
 complete -c climark -kn "__fish_seen_subcommand_from list-assessments" -a "(climark list-courses -s --format=plain)"
-complete -c climark -kn "__fish_seen_subcommand_from upload-assessment" -a "(climark list-assessments -s --format=plain)"\
 "#
     )?;
 

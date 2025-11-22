@@ -16,29 +16,17 @@ _climark() {
             ",$1")
                 cmd="climark"
                 ;;
-            climark,help)
-                cmd="climark__help"
-                ;;
             climark,list-assessments)
                 cmd="climark__list__assessments"
                 ;;
             climark,list-courses)
                 cmd="climark__list__courses"
                 ;;
+            climark,login)
+                cmd="climark__login"
+                ;;
             climark,upload-assessment)
                 cmd="climark__upload__assessment"
-                ;;
-            climark__help,help)
-                cmd="climark__help__help"
-                ;;
-            climark__help,list-assessments)
-                cmd="climark__help__list__assessments"
-                ;;
-            climark__help,list-courses)
-                cmd="climark__help__list__courses"
-                ;;
-            climark__help,upload-assessment)
-                cmd="climark__help__upload__assessment"
                 ;;
             *)
                 ;;
@@ -47,7 +35,7 @@ _climark() {
 
     case "${cmd}" in
         climark)
-            opts="-h --crowdmark-session-token --help list-courses list-assessments upload-assessment help"
+            opts="--crowdmark-session-token list-courses list-assessments upload-assessment login"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -64,78 +52,8 @@ _climark() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        climark__help)
-            opts="list-courses list-assessments upload-assessment help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        climark__help__help)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        climark__help__list__assessments)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        climark__help__list__courses)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        climark__help__upload__assessment)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         climark__list__assessments)
-            opts="-j -s -h --json --silent --help <COURSE_ID>"
+            opts="-h -j -s --hide-scores --json --silent <COURSE_ID>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -149,7 +67,7 @@ _climark() {
             return 0
             ;;
         climark__list__courses)
-            opts="-f -s -h --format --silent --help"
+            opts="-f -s --format --silent"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -170,8 +88,22 @@ _climark() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        climark__login)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         climark__upload__assessment)
-            opts="-s -h --silent --submit --help <ASSESSMENT_ID>"
+            opts="-s --silent --submit <ASSESSMENT_ID>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

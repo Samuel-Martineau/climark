@@ -22,57 +22,35 @@ Register-ArgumentCompleter -Native -CommandName 'climark' -ScriptBlock {
     $completions = @(switch ($command) {
         'climark' {
             [CompletionResult]::new('--crowdmark-session-token', '--crowdmark-session-token', [CompletionResultType]::ParameterName, 'crowdmark-session-token')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('list-courses', 'list-courses', [CompletionResultType]::ParameterValue, 'list-courses')
-            [CompletionResult]::new('list-assessments', 'list-assessments', [CompletionResultType]::ParameterValue, 'list-assessments')
-            [CompletionResult]::new('upload-assessment', 'upload-assessment', [CompletionResultType]::ParameterValue, 'upload-assessment')
-            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            [CompletionResult]::new('list-courses', 'list-courses', [CompletionResultType]::ParameterValue, 'List courses')
+            [CompletionResult]::new('list-assessments', 'list-assessments', [CompletionResultType]::ParameterValue, 'List assessments')
+            [CompletionResult]::new('upload-assessment', 'upload-assessment', [CompletionResultType]::ParameterValue, 'Upload assessment')
+            [CompletionResult]::new('login', 'login', [CompletionResultType]::ParameterValue, 'Login to Crowdmark')
             break
         }
         'climark;list-courses' {
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'f')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'format')
-            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
-            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'silent')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 'Don''t print error messages')
+            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'Don''t print error messages')
             break
         }
         'climark;list-assessments' {
-            [CompletionResult]::new('-j', '-j', [CompletionResultType]::ParameterName, 'j')
-            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'json')
-            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
-            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'silent')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Hide scores')
+            [CompletionResult]::new('--hide-scores', '--hide-scores', [CompletionResultType]::ParameterName, 'Hide scores')
+            [CompletionResult]::new('-j', '-j', [CompletionResultType]::ParameterName, 'Print in JSON Format')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Print in JSON Format')
+            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 'Don''t print error messages')
+            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'Don''t print error messages')
             break
         }
         'climark;upload-assessment' {
-            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'silent')
-            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
-            [CompletionResult]::new('--submit', '--submit', [CompletionResultType]::ParameterName, 'submit')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--silent', '--silent', [CompletionResultType]::ParameterName, 'Don''t print error messages')
+            [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 'Submit assignment after upload')
+            [CompletionResult]::new('--submit', '--submit', [CompletionResultType]::ParameterName, 'Submit assignment after upload')
             break
         }
-        'climark;help' {
-            [CompletionResult]::new('list-courses', 'list-courses', [CompletionResultType]::ParameterValue, 'list-courses')
-            [CompletionResult]::new('list-assessments', 'list-assessments', [CompletionResultType]::ParameterValue, 'list-assessments')
-            [CompletionResult]::new('upload-assessment', 'upload-assessment', [CompletionResultType]::ParameterValue, 'upload-assessment')
-            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
-            break
-        }
-        'climark;help;list-courses' {
-            break
-        }
-        'climark;help;list-assessments' {
-            break
-        }
-        'climark;help;upload-assessment' {
-            break
-        }
-        'climark;help;help' {
+        'climark;login' {
             break
         }
     })

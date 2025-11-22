@@ -16,26 +16,32 @@ pub enum OutputFormat {
 
 #[derive(clap::Subcommand)]
 pub enum Commands {
+    #[command(about = "List courses")]
     ListCourses {
-        // json: bool,
         #[arg(short, long, value_enum, default_value_t)]
         format: OutputFormat,
-        #[arg(short, long)]
+        #[arg(help = "Don't print error messages", short, long)]
         silent: bool,
     },
+    #[command(about = "List assessments")]
     ListAssessments {
         #[arg(env = "CLIMARK_DEFAULT_COURSE")]
         course_id: String,
-        #[arg(short, long)]
+        #[arg(help = "Hide scores", short, long)]
+        hide_scores: bool,
+        #[arg(help = "Print in JSON Format", short, long)]
         json: bool,
-        #[arg(short, long)]
+        #[arg(help = "Don't print error messages", short, long)]
         silent: bool,
     },
+    #[command(about = "Upload assessment")]
     UploadAssessment {
         assessment_id: String,
-        #[arg(long)]
+        #[arg(help = "Don't print error messages", long)]
         silent: bool,
-        #[arg(short, long)]
+        #[arg(help = "Submit assignment after upload", short, long)]
         submit: bool,
     },
+    #[command(about = "Login to Crowdmark")]
+    Login,
 }

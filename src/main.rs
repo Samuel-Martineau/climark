@@ -2,7 +2,7 @@ mod assessments;
 mod cli;
 mod courses;
 mod error;
-mod keyring;
+mod login;
 mod upload;
 
 use clap::Parser;
@@ -16,7 +16,7 @@ async fn main() {
 
     let token = match &cli.crowdmark_session_token {
         Some(t) => t,
-        None => &keyring::get_token().await.unwrap(),
+        None => &login::get_token().await.unwrap(),
     };
 
     let client = crowdmark::Client::new(token).await.unwrap();
@@ -27,12 +27,14 @@ async fn main() {
         }
         Commands::ListAssessments {
             course_id,
+            hide_scores,
             json,
             silent,
         } => handle_error(
-            assessments::list_assessments(client, course_id, json).await,
+            assessments::list_assessments(client, course_id, hide_scores, json).await,
             *silent,
         ),
+        Commands::Login => handle_error(login::login().await, false),
         Commands::UploadAssessment {
             assessment_id,
             silent,
