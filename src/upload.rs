@@ -1,11 +1,22 @@
+use crowdmark::Client;
 use crowdmark::error::CrowdmarkError;
 use hayro::{Pdf, RenderSettings, render};
 use hayro_interpret::InterpreterSettings;
-use std::io::{self, Read};
+use image::ImageFormat;
+use std::io::Cursor;
+use std::io::{self, IsTerminal, Read};
 use std::sync::Arc;
 
-pub fn upload_assessment(course_id: &str, assessment_id: &str) -> Result<(), CrowdmarkError> {
+pub async fn upload_assessment(
+    client: Client,
+    assessment_id: &str,
+    submit: &bool,
+) -> Result<(), CrowdmarkError> {
     let mut buffer = Vec::new();
+    if io::stdin().is_terminal() {
+        println!("stdin is empty!");
+        std::process::exit(1);
+    }
     io::stdin().read_to_end(&mut buffer).unwrap();
     let data = Arc::new(buffer);
     let pdf = Pdf::new(data).unwrap();
@@ -16,11 +27,25 @@ pub fn upload_assessment(course_id: &str, assessment_id: &str) -> Result<(), Cro
         ..Default::default()
     };
 
+    let mut pages: Vec<(usize, Vec<u8>)> = Vec::new();
+
+    println!("Rendering pages...");
     for (idx, page) in pdf.pages().iter().enumerate() {
         let png = render(page, &interpreter_settings, &render_settings).take_png();
-        // Do something with png
-        // let mut stdout = io::stdout().lock();
-        // stdout.write_all(&png).unwrap();
+        let img = image::load_from_memory(&png).unwrap();
+
+        let mut jpeg_bytes = Vec::new();
+        img.write_to(&mut Cursor::new(&mut jpeg_bytes), ImageFormat::Jpeg)
+            .unwrap();
+
+        pages.push((idx + 1, jpeg_bytes));
+    }
+
+    println!("Uploading pages...");
+    client.upload_assessment(assessment_id, pages).await?;
+    if *submit {
+        println!("Submitting assessment...");
+        client.submit_assessment(assessment_id).await?;
     }
     Ok(())
 }

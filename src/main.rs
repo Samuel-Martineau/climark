@@ -16,7 +16,9 @@ use tabled::{
 async fn main() {
     let cli = Cli::parse();
 
-    let client = crowdmark::Client::new(&cli.crowdmark_session_token).unwrap();
+    let client = crowdmark::Client::new(&cli.crowdmark_session_token)
+        .await
+        .unwrap();
 
     match &cli.command {
         Commands::ListCourses { format, silent } => {
@@ -97,7 +99,7 @@ async fn main() {
                 builder.push_record(["Title", "Score (%)", "Due"]);
                 for assessment in assessments {
                     builder.push_record([
-                        assessment.title,
+                        assessment.id,
                         assessment
                             .score
                             .map(|s| format!("{:>3.0}", s * 100.0))
@@ -120,10 +122,12 @@ async fn main() {
             }
         }
         Commands::UploadAssessment {
-            course_id,
             assessment_id,
+            submit,
         } => {
-            upload::upload_assessment(course_id, assessment_id).unwrap();
+            upload::upload_assessment(client, assessment_id, submit)
+                .await
+                .unwrap();
         }
     }
 }
@@ -145,8 +149,8 @@ fn handle_error(e: CrowdmarkError) {
         CrowdmarkError::InvalidHeaderValue(msg) => {
             eprintln!("Invalid header value. Is the session token formatted correctly?: {msg}");
         }
-        CrowdmarkError::NotAuthenticated() => {
-            eprintln!("Error: Not Authenticated. Are you logged in?");
+        CrowdmarkError::NotAuthenticated(msg) => {
+            eprintln!("Error: Not Authenticated. Are you logged in?: {msg}");
         }
         CrowdmarkError::InvalidCourseID() => {
             eprintln!("Error: Invalid Course ID");

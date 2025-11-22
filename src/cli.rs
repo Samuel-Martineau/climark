@@ -1,5 +1,4 @@
 #[derive(clap::Parser)]
-#[command(version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -33,8 +32,8 @@ pub enum Commands {
         silent: bool,
     },
     UploadAssessment {
-        #[arg(env = "CLIMARK_DEFAULT_COURSE")]
-        course_id: String,
         assessment_id: String,
+        #[arg(short, long)]
+        submit: bool,
     },
 }

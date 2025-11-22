@@ -1,17 +1,20 @@
 pub mod error;
-use error::CrowdmarkError;
-
-use std::collections::HashMap;
+mod upload;
 
 use chrono::{DateTime, Utc};
+use error::CrowdmarkError;
+use regex::Regex;
+use reqwest::header;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 static DEFAULT_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 #[derive(Debug)]
 pub struct Client {
     client: reqwest::Client,
+    csrf: String,
 }
 
 #[non_exhaustive]
@@ -118,22 +121,35 @@ impl Client {
     ///
     /// This function returns a [`CrowdmarkError::HeaderError`] if the provided
     /// `session_token` is incorrectly formatted.
-    pub fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
-        let mut headers = reqwest::header::HeaderMap::new();
+    pub async fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
+        let mut headers = header::HeaderMap::new();
+        let cookie_string = format!("cm_session_id={session_token}");
 
-        headers.insert(reqwest::header::COOKIE, {
-            let mut auth_value =
-                reqwest::header::HeaderValue::from_str(&format!("cm_session_id={session_token}"))?;
-            auth_value.set_sensitive(true);
-            auth_value
-        });
+        let mut cookie_value = header::HeaderValue::from_str(&cookie_string)?;
+        cookie_value.set_sensitive(true);
+        headers.insert(header::COOKIE, cookie_value);
 
         let client = reqwest::Client::builder()
             .user_agent(DEFAULT_USER_AGENT)
             .default_headers(headers)
             .build()?;
 
-        Ok(Self { client })
+        let res = client
+            .get("https://app.crowdmark.com/student")
+            .send()
+            .await
+            .unwrap();
+        let html = res.text().await.unwrap();
+        let re = Regex::new(r#"<meta\s+name="csrf-token"\s+content="([^"]+)""#).unwrap();
+        let csrf = match re.captures(&html) {
+            Some(captures) => captures[1].to_string(),
+            None => {
+                return Err(CrowdmarkError::NotAuthenticated(
+                    "Missing CSRF Token".to_string(),
+                ));
+            }
+        };
+        Ok(Self { client, csrf })
     }
 
     /// Retrieves the list of courses available to the authenticated student.
@@ -174,7 +190,9 @@ impl Client {
             .await?;
 
         if resp.status() == reqwest::StatusCode::FOUND {
-            return Err(CrowdmarkError::NotAuthenticated());
+            return Err(CrowdmarkError::NotAuthenticated(
+                "Could not get courses".to_string(),
+            ));
         }
 
         let data = resp
@@ -276,7 +294,9 @@ impl Client {
             .await?;
 
         if resp.status() == reqwest::StatusCode::FOUND {
-            return Err(CrowdmarkError::NotAuthenticated());
+            return Err(CrowdmarkError::NotAuthenticated(
+                "Could not get assessments".to_string(),
+            ));
         }
 
         let text = resp.text().await?;
@@ -302,7 +322,7 @@ impl Client {
             .into_iter()
             .map(
                 |ResponseData {
-                     id,
+                     id: _,
                      attributes,
                      relationships,
                  }| {
@@ -323,7 +343,7 @@ impl Client {
                                 })?;
 
                             Ok(Assessment {
-                                id,
+                                id: relationships.exam_master.data.id,
                                 title: exam_master.title.clone(),
                                 kind: match exam_master.kind {
                                     ExamMasterKind::AtHome => AssessmentKind::TakeHome,
