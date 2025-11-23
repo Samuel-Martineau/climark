@@ -50,19 +50,23 @@ struct RelationData {
 }
 
 impl crate::Client {
-    /// Starts drafting  an assessment.
+    /// Starts drafting an assessment.
     ///
     /// # Errors
     ///
-    /// Returns `CrowdmarkError` if the request to Crowdmark fails.
-    pub async fn start_drafting(&self, assessment_id: &str) -> Result<(), CrowdmarkError> {
+    /// Returns [`CrowdmarkError`] if the request to Crowdmark fails.
+    pub async fn start_drafting(
+        &self,
+        csrf: &str,
+        assessment_id: &str,
+    ) -> Result<(), CrowdmarkError> {
         self.client.post(format!("https://app.crowdmark.com/api/v2/student/assignments/{assessment_id}/start-drafting"))
-            .header("X-Csrf-Token", self.csrf.clone())
+            .header("X-Csrf-Token", csrf)
             .send().await?;
         Ok(())
     }
 
-    async fn clear_pages(&self, root: &AssessResponse) -> Result<(), CrowdmarkError> {
+    async fn clear_pages(&self, csrf: &str, root: &AssessResponse) -> Result<(), CrowdmarkError> {
         for page in root
             .included
             .iter()
@@ -92,7 +96,7 @@ impl crate::Client {
                 ))
                 .header("Content-Type", "application/vnd.api+json")
                 .json(&body)
-                .header("X-Csrf-Token", self.csrf.clone())
+                .header("X-Csrf-Token", csrf)
                 .send()
                 .await?;
         }
@@ -125,7 +129,7 @@ impl crate::Client {
                 ))
                 .header("Content-Type", "application/vnd.api+json")
                 .json(&body)
-                .header("X-Csrf-Token", self.csrf.clone())
+                .header("X-Csrf-Token", csrf)
                 .send()
                 .await?;
         }
@@ -161,13 +165,14 @@ impl crate::Client {
     /// - Requests to S3 or Crowdmark fail.
     pub async fn upload_assessment(
         &self,
+        csrf: &str,
         assessment_id: &str,
         pages: Vec<(usize, Vec<u8>)>,
     ) -> Result<(), CrowdmarkError> {
         let root = self.fetch_assessment(assessment_id).await?;
         let assignment_id = root.data.id.clone();
-        self.start_drafting(&assignment_id).await?;
-        self.clear_pages(&root).await?;
+        self.start_drafting(csrf, &assignment_id).await?;
+        self.clear_pages(csrf, &root).await?;
 
         for (question, img) in pages {
             let question_id = root
@@ -219,9 +224,7 @@ impl crate::Client {
                 .text("x-amz-meta-original-filename", assignment_id.clone())
                 .part(
                     "file",
-                    multipart::Part::bytes(img.clone())
-                        .file_name(assignment_id.clone())
-                        .mime_str("image/jpeg")?,
+                    multipart::Part::bytes(img.clone()).file_name(assignment_id.clone()),
                 );
 
             self.client
@@ -255,7 +258,7 @@ impl crate::Client {
             self.client
                 .post("https://app.crowdmark.com/api/v2/student/assignment-pages")
                 .header("Content-Type", "application/vnd.api+json")
-                .header("X-Csrf-Token", self.csrf.clone())
+                .header("X-Csrf-Token", csrf)
                 .json(&body)
                 .send()
                 .await?
@@ -273,7 +276,11 @@ impl crate::Client {
     /// - The assessment cannot be fetched.
     /// - Generating the submission payload fails.
     /// - The submission request fails.
-    pub async fn submit_assessment(&self, assessment_id: &str) -> Result<(), CrowdmarkError> {
+    pub async fn submit_assessment(
+        &self,
+        csrf: &str,
+        assessment_id: &str,
+    ) -> Result<(), CrowdmarkError> {
         #[derive(Debug, Serialize)]
         struct TargetOutput {
             pages: Vec<TargetPage>,
@@ -340,7 +347,7 @@ impl crate::Client {
                 root.data.id
             ))
             .json(&output)
-            .header("X-Csrf-Token", self.csrf.clone())
+            .header("X-Csrf-Token", csrf)
             .send()
             .await?
             .error_for_status()

@@ -1,12 +1,5 @@
 use crate::error::ClimarkError;
-
-use tabled::{
-    builder::Builder,
-    settings::{
-        Color,
-        object::{Columns, Object, Rows},
-    },
-};
+use comfy_table::{Attribute::Bold, Cell, Color, Table};
 
 pub async fn list_assessments(
     client: crowdmark::Client,
@@ -19,49 +12,38 @@ pub async fn list_assessments(
     if *json {
         println!("{}", serde_json::to_string(&assessments).unwrap());
     } else {
-        let mut builder = Builder::new();
-
-        let mut header = vec!["ID".to_string(), "Title".to_string()];
-        if !*hide_scores {
-            header.push("Score (%)".to_string());
-        }
-        header.push("Due".to_string());
-
-        builder.push_record(header);
-        assessments
-            .iter()
-            .map(|a| {
-                let mut row = vec![a.id.clone(), a.title.clone()];
-
-                if !*hide_scores {
-                    row.push(
-                        a.score
-                            .map(|s| format!("{:>3.0}", s * 100.0))
-                            .unwrap_or_default(),
-                    );
-                }
-
-                row.push(
-                    a.graded
+        let mut table = Table::new();
+        table.load_preset(crate::TABLE_PRESET).set_header(vec![
+            Cell::new("ID").add_attribute(Bold),
+            Cell::new("Title").add_attribute(Bold),
+            Cell::new("Score (%)").add_attribute(Bold),
+            Cell::new("Due").add_attribute(Bold),
+        ]);
+        for assessment in assessments {
+            let score = if *hide_scores {
+                String::new()
+            } else {
+                assessment
+                    .score
+                    .map(|s| format!("{:>3.0}", s * 100.0))
+                    .unwrap_or_default()
+            };
+            table.add_row([
+                Cell::new(&assessment.id).fg(Color::Green),
+                Cell::new(&assessment.title).fg(Color::Blue),
+                Cell::new(score).fg(Color::Magenta),
+                Cell::new(
+                    assessment
+                        .graded
                         .map(|g| {
                             g.with_timezone(&chrono::Local)
                                 .format("%Y-%m-%d %H:%M:%S")
                                 .to_string()
                         })
                         .unwrap_or_default(),
-                );
-
-                row
-            })
-            .for_each(|row| builder.push_record(row));
-
-        let mut table = crate::make_table(builder);
-        table.modify(Columns::one(0).not(Rows::one(0)), Color::FG_GREEN);
-        table.modify(Columns::one(1).not(Rows::one(0)), Color::FG_BLUE);
-        table.modify(Columns::one(2).not(Rows::one(0)), Color::FG_MAGENTA);
-
-        if !*hide_scores {
-            table.modify(Columns::one(3).not(Rows::one(0)), Color::FG_YELLOW);
+                )
+                .fg(Color::Yellow),
+            ]);
         }
         println!("{table}");
     }

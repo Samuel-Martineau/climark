@@ -8,7 +8,8 @@ mod upload;
 use clap::Parser;
 use cli::{Cli, Commands, OutputFormat};
 use error::ClimarkError;
-use tabled::{builder::Builder, settings::Style};
+
+pub const TABLE_PRESET: &str = "    ────           ";
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +20,7 @@ async fn main() {
         None => &login::get_token().await.unwrap(),
     };
 
-    let client = crowdmark::Client::new(token).await.unwrap();
+    let client = crowdmark::Client::new(token).unwrap();
 
     match &cli.command {
         Commands::ListCourses { format, silent } => {
@@ -44,18 +45,6 @@ async fn main() {
             *silent,
         ),
     }
-}
-
-fn make_table(b: Builder) -> tabled::Table {
-    let mut table = b.build();
-    let style = Style::rounded()
-        .remove_left()
-        .remove_right()
-        .remove_vertical()
-        .remove_top()
-        .remove_bottom();
-    table.with(style);
-    table
 }
 
 fn handle_error(result: Result<(), ClimarkError>, silent: bool) {

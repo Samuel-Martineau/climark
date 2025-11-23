@@ -17,7 +17,7 @@ pub enum CrowdmarkError {
     #[error("Too many pages submitted")]
     TooManyPages(),
     #[error("Regex compile error")]
-    Regex(#[from] regex::Error),
+    Regex(#[from] regex_lite::Error),
     #[error("Invalid S3 Policy Response")]
     S3Policy(),
     #[error("Failed to upload to S3")]

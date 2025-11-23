@@ -4,7 +4,7 @@ mod upload;
 
 use chrono::{DateTime, Utc};
 use error::CrowdmarkError;
-use regex::Regex;
+use regex_lite::Regex;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +15,6 @@ static DEFAULT_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CAR
 #[derive(Debug)]
 pub struct Client {
     client: reqwest::Client,
-    csrf: String,
 }
 
 #[non_exhaustive]
@@ -105,6 +104,33 @@ where
     }
 }
 
+/// Gets CSRF token from Crowdmark
+///
+/// # Errors
+///
+/// Returns [`CrowdmarkError`] if the request to Crowdmark fails, or CSRF token not found
+pub async fn get_csrf(client: Option<&reqwest::Client>) -> Result<String, CrowdmarkError> {
+    let client = match client {
+        Some(c) => c,
+        None => &reqwest::Client::builder()
+            .user_agent(DEFAULT_USER_AGENT)
+            .build()?,
+    };
+    let resp = client
+        .get("https://app.crowdmark.com/student")
+        .send()
+        .await?;
+    let re = Regex::new(r#"<meta name="csrf-token" content="([^"]+)""#)?;
+    Ok(match re.captures(&resp.text().await?) {
+        Some(captures) => captures[1].to_string(),
+        None => {
+            return Err(CrowdmarkError::NotAuthenticated(
+                "Missing CSRF Token".to_string(),
+            ));
+        }
+    })
+}
+
 impl Client {
     /// Creates a new [`Client`] instance using the provided session token.
     ///
@@ -120,9 +146,9 @@ impl Client {
     ///
     /// # Errors
     ///
-    /// This function returns a [`CrowdmarkError::HeaderError`] if the provided
+    /// This function returns a [`CrowdmarkError`] if the provided
     /// `session_token` is incorrectly formatted.
-    pub async fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
+    pub fn new(session_token: &str) -> Result<Self, CrowdmarkError> {
         let mut headers = header::HeaderMap::new();
         let cookie_string = format!("cm_session_id={session_token}");
 
@@ -135,21 +161,16 @@ impl Client {
             .default_headers(headers)
             .build()?;
 
-        let res = client
-            .get("https://app.crowdmark.com/student")
-            .send()
-            .await?;
-        let html = res.text().await?;
-        let re = Regex::new(r#"<meta\s+name="csrf-token"\s+content="([^"]+)""#)?;
-        let csrf = match re.captures(&html) {
-            Some(captures) => captures[1].to_string(),
-            None => {
-                return Err(CrowdmarkError::NotAuthenticated(
-                    "Missing CSRF Token".to_string(),
-                ));
-            }
-        };
-        Ok(Self { client, csrf })
+        Ok(Self { client })
+    }
+
+    /// Gets CSRF token from Crowdmark
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CrowdmarkError`] if the request to Crowdmark fails, or CSRF token not found
+    pub async fn get_csrf(&self) -> Result<String, CrowdmarkError> {
+        get_csrf(Some(&self.client)).await
     }
 
     /// Retrieves the list of courses available to the authenticated student.
@@ -287,17 +308,19 @@ impl Client {
             ExamMaster(ExamMasterData),
         }
 
-        let json_val: Value = serde_json::from_str(
-            &self
+        let resp = self
             .client
             .get(format!("https://app.crowdmark.com/api/v2/student/assignments?fields[exam-masters][]=type&fields[exam-masters][]=title&filter[course]={course_id}"))
             .send()
-            .await?
-            .error_for_status()
-            .map_err(|e| CrowdmarkError::NotAuthenticated(e.to_string()))?
-            .text()
-            .await?)?;
+            .await?;
 
+        if resp.status() == reqwest::StatusCode::FOUND {
+            return Err(CrowdmarkError::NotAuthenticated(
+                "Could not get assessments".to_string(),
+            ));
+        }
+
+        let json_val: Value = serde_json::from_str(&resp.text().await?)?;
         json_val
             .get("included")
             .ok_or(CrowdmarkError::InvalidCourseID())?;

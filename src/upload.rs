@@ -42,9 +42,12 @@ pub async fn upload_assessment(
         })
         .collect::<Result<Vec<_>, ClimarkError>>()?;
 
-    client.upload_assessment(assessment_id, pages).await?;
+    let csrf = client.get_csrf().await?;
+    client
+        .upload_assessment(&csrf, assessment_id, pages)
+        .await?;
     if *submit {
-        client.submit_assessment(assessment_id).await?;
+        client.submit_assessment(&csrf, assessment_id).await?;
     }
     Ok(())
 }
