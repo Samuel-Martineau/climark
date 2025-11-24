@@ -1,4 +1,5 @@
 use crate::error::CrowdmarkError;
+use regex_lite::Regex;
 use reqwest::Client;
 
 /// Logs in to Crowdmark
@@ -8,12 +9,25 @@ use reqwest::Client;
 /// Returns [`CrowdmarkError`] if the request to Crowdmark fails.
 pub async fn get_token(email: String, password: String) -> Result<String, CrowdmarkError> {
     let client = Client::builder().cookie_store(true).build()?;
-    let csrf = crate::get_csrf(None).await?;
+    let resp = client
+        .get("https://app.crowdmark.com/sign-in")
+        .send()
+        .await?;
+
+    let re = Regex::new(r#"name="authenticity_token" value="([^"]+)""#)?;
+    let authenticity_token = match re.captures(&resp.text().await?) {
+        Some(captures) => captures[1].to_string(),
+        None => {
+            return Err(CrowdmarkError::NotAuthenticated(
+                "Missing authenticity token".to_string(),
+            ));
+        }
+    };
     let params = [
-        ("authenticity_token", csrf),
+        ("authenticity_token", authenticity_token),
         ("user[email]", email.clone()),
         ("user[password]", password.clone()),
-        ("commit", "Sign in".to_string()),
+        ("commit", "Sign+in".to_string()),
     ];
     client
         .post("https://app.crowdmark.com/sign-in")
