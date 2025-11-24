@@ -4,11 +4,13 @@ use clap_complete::{
     generate_to,
     shells::{Bash, Fish, PowerShell, Zsh},
 };
+use std::fs;
 use std::io::{Error, Write};
 
 fn main() -> Result<(), Error> {
     const BIN_NAME: &str = env!("CARGO_PKG_NAME");
     const OUT_DIR: &str = "completions";
+    fs::create_dir_all(OUT_DIR)?;
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=crowdmark/");
