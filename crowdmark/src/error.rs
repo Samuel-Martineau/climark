@@ -1,33 +1,35 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum CrowdmarkError {
-    #[error("Invalid header value")]
-    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
-    #[error("Not authenticated")]
-    NotAuthenticated(String),
-    #[error("Request error")]
-    Reqwest(#[source] reqwest::Error),
+    #[error("Failed to submit Crowdmark assessment")]
+    AssessmentSubmit(String),
+    #[error("Failed to upload to Crowdmark assessment")]
+    AssessmentUpload(String),
     #[error("JSON error")]
     Decode(String),
-    #[error("Invalid course ID")]
-    InvalidCourseID(),
     #[error("Invalid assessment ID")]
     InvalidAssessmentID(),
-    #[error("Too many pages submitted")]
-    TooManyPages(),
+    #[error("Invalid course ID")]
+    InvalidCourseID(),
+    #[error("Invalid header value")]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    #[error("Tokio join error")]
+    Join(#[from] tokio::task::JoinError),
+    #[error("Failed to login")]
+    Login(),
+    #[error("Not authenticated")]
+    NotAuthenticated(String),
     #[error("Regex compile error")]
     Regex(#[from] regex_lite::Error),
+    #[error("Request error")]
+    Reqwest(#[source] reqwest::Error),
     #[error("Invalid S3 Policy Response")]
     S3Policy(),
     #[error("Failed to upload to S3")]
     S3Upload(String),
-    #[error("Failed to upload to Crowdmark assignment")]
-    AssignmentUpload(String),
-    #[error("Failed to submit Crowdmark assignment")]
-    AssignmentSubmit(String),
-    #[error("Failed to login")]
-    Login(),
+    #[error("Too many pages submitted")]
+    TooManyPages(),
 }
 
 impl From<reqwest::Error> for CrowdmarkError {

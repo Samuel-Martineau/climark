@@ -83,7 +83,7 @@ struct RequiredData<T> {
     data: T,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct EmptyStruct {}
 
 fn from_raw_normalized_points<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
@@ -188,7 +188,7 @@ impl Client {
     /// * The request to the Crowdmark API fails.
     /// * The API returns an unexpected response format.
     pub async fn list_courses(&self) -> Result<Vec<Course>, CrowdmarkError> {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
         enum ResponseDataItem {
             #[serde(rename = "courses")]
@@ -198,7 +198,7 @@ impl Client {
             },
         }
 
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         #[serde(rename_all = "kebab-case")]
         struct ResponseRelationship {
             course_archivation: OptionalData<EmptyStruct>,
@@ -267,7 +267,7 @@ impl Client {
         &self,
         course_id: &str,
     ) -> Result<Vec<Assessment>, CrowdmarkError> {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
         enum ResponseDataItem {
             #[serde(rename = "assignments")]
@@ -280,13 +280,13 @@ impl Client {
             },
         }
 
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         #[serde(rename_all = "kebab-case")]
         struct ResponseRelationship {
             exam_master: RequiredData<RelationshipId>,
         }
 
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         enum ExamMasterKind {
             #[serde(rename = "ExamMaster::AtHome")]
             AtHome,
@@ -294,14 +294,14 @@ impl Client {
             Proctored,
         }
 
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         struct ExamMasterData {
             title: String,
             #[serde(rename = "type")]
             kind: ExamMasterKind,
         }
 
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, Deserialize)]
         #[serde(tag = "type", content = "attributes", rename_all_fields = "kebab-case")]
         enum IncludedDataItem {
             #[serde(rename = "exam-masters")]

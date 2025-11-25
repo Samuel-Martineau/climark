@@ -11,4 +11,5 @@ reqwest = { version = "0.12.23", features = ["cookies", "json", "multipart"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 uuid = { version = "1.18.1", features = ["v4"] }

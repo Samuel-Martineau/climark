@@ -39,7 +39,7 @@ pub enum Commands {
         assessment_id: String,
         #[arg(help = "Don't print error messages", long)]
         silent: bool,
-        #[arg(help = "Submit assignment after upload", short, long)]
+        #[arg(help = "Submit assessment after upload", short, long)]
         submit: bool,
     },
     #[command(about = "Login to Crowdmark")]

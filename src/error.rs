@@ -1,7 +1,7 @@
 use crowdmark::error::CrowdmarkError;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum ClimarkError {
     #[error(transparent)]
     Crowdmark(#[from] CrowdmarkError),
