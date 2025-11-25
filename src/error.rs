@@ -9,8 +9,4 @@ pub enum ClimarkError {
     StdinRead(),
     #[error("Could not parse PDF from stdin")]
     PdfParse(),
-    #[error("PNG Decode Error")]
-    PngDecode(),
-    #[error("JPEG Encode Error")]
-    JpegEncode(),
 }

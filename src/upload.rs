@@ -29,18 +29,17 @@ pub async fn upload_assessment(
     let pages = pdf
         .pages()
         .iter()
-        .enumerate()
-        .map(|(idx, page)| {
+        .map(|page| {
             let png = render(page, &interpreter_settings, &render_settings).take_png();
-            let img = image::load_from_memory(&png).map_err(|_| ClimarkError::PngDecode())?;
+            let img = image::load_from_memory(&png).expect("PNG Decode Error");
 
             let mut jpeg_data = Vec::new();
             img.write_to(&mut Cursor::new(&mut jpeg_data), ImageFormat::Jpeg)
-                .map_err(|_| ClimarkError::JpegEncode())?;
+                .expect("JPEG Encode Error");
 
-            Ok((idx + 1, jpeg_data))
+            jpeg_data
         })
-        .collect::<Result<Vec<_>, ClimarkError>>()?;
+        .enumerate();
 
     let csrf = client.get_csrf().await?;
     client

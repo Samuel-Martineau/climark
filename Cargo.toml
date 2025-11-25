@@ -6,6 +6,7 @@ version = "0.1.0"
 license = "GPL-3.0-or-later"
 edition = "2024"
 
+
 [workspace.dependencies]
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "serde", "std"] }
 serde = { version = "1.0.226", features = ["derive"] }
@@ -18,6 +19,11 @@ name = "climark"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+panic = "abort"
 
 [dependencies]
 chrono.workspace = true

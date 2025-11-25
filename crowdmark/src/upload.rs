@@ -260,12 +260,15 @@ impl crate::Client {
     /// - The assessment ID is invalid.
     /// - There are too many pages or a page is missing.
     /// - Requests to S3 or Crowdmark fail.
-    pub async fn upload_assessment(
+    pub async fn upload_assessment<I>(
         &self,
         csrf: &str,
         assessment_id: &str,
-        pages: Vec<(usize, Vec<u8>)>,
-    ) -> Result<(), CrowdmarkError> {
+        pages: I,
+    ) -> Result<(), CrowdmarkError>
+    where
+        I: IntoIterator<Item = (usize, Vec<u8>)>,
+    {
         let root = self.fetch_assessment(assessment_id).await?;
         let assignment_id = root.data.id.clone();
         self.start_drafting(csrf, &assignment_id).await?;
@@ -279,7 +282,7 @@ impl crate::Client {
             let csrf = csrf.to_string();
             let root = root.clone();
             set.spawn(async move {
-                upload_page(client, root, csrf, assignment_id, question, img).await
+                upload_page(client, root, csrf, assignment_id, question + 1, img).await
             });
         }
 
