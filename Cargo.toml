@@ -33,7 +33,7 @@ comfy-table = "7.2.1"
 crowdmark = { path = "crowdmark" }
 hayro = "0.4.0"
 hayro-interpret = "0.4.0"
-image = { version = "0.25.9", default-features = false, features = ["jpeg"] }
+jpeg-encoder = { version = "0.6.1", features = ["simd"]}
 keyring = { version = "3.6.3", features = ["linux-native-sync-persistent"] }
 rpassword = "7.4.0"
 serde.workspace = true
