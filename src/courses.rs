@@ -14,6 +14,12 @@ pub async fn list_courses(
 ) -> Result<(), ClimarkError> {
     let courses = client.list_courses().await?;
     match *format {
+        OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
+        OutputFormat::Plain => {
+            for course in courses {
+                println!("{}\t{}", course.id, course.name);
+            }
+        }
         OutputFormat::Pretty => {
             let mut table = Table::new();
             table.load_preset(crate::TABLE_PRESET).set_header(vec![
@@ -36,12 +42,6 @@ pub async fn list_courses(
             }
             println!("{table}");
         }
-        OutputFormat::Plain => {
-            for course in courses {
-                println!("{}\t{}", course.id, course.name);
-            }
-        }
-        OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
     }
     Ok(())
 }

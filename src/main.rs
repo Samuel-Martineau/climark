@@ -28,20 +28,19 @@ async fn main() {
         }
         Commands::ListAssessments {
             course_id,
-            hide_scores,
-            json,
+            format,
             silent,
         } => handle_error(
-            assessments::list_assessments(client, course_id, hide_scores, json).await,
+            assessments::list_assessments(client, course_id, format).await,
             *silent,
         ),
         Commands::Login => handle_error(login::login().await, false),
         Commands::UploadAssessment {
-            assessment_id,
+            ids,
             silent,
             submit,
         } => handle_error(
-            upload::upload_assessment(client, assessment_id, submit).await,
+            upload::upload_assessment(client, ids.last().unwrap(), submit).await,
             *silent,
         ),
     }

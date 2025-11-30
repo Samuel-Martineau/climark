@@ -25,7 +25,11 @@ fn main() -> Result<(), Error> {
         file,
         r#"
 complete -c climark -f
-complete -c climark -kn "__fish_seen_subcommand_from list-assessments" -a "(climark list-courses -s --format=plain)"
+complete -c climark -kn "__fish_climark_using_subcommand list-assessments" -a "(climark list-courses --format=plain --silent)"
+complete -c climark -kn "__fish_climark_using_subcommand upload-assessment; and test (count (commandline -opc)) -eq 2" \
+    -a "(climark list-courses --format=plain --silent)"
+complete -c climark -kn '__fish_climark_using_subcommand upload-assessment; and test (count (commandline -opc)) -eq 3' \
+    -a "(climark list-assessments (commandline -opc)[3] --format=plain --silent)"
 "#
     )?;
 

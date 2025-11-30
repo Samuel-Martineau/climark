@@ -27,16 +27,15 @@ pub enum Commands {
     ListAssessments {
         #[arg(env = "CLIMARK_DEFAULT_COURSE")]
         course_id: String,
-        #[arg(help = "Hide scores", short, long)]
-        hide_scores: bool,
-        #[arg(help = "Print in JSON Format", short, long)]
-        json: bool,
+        #[arg(short, long, value_enum, default_value_t)]
+        format: OutputFormat,
         #[arg(help = "Don't print error messages", short, long)]
         silent: bool,
     },
     #[command(about = "Upload assessment")]
     UploadAssessment {
-        assessment_id: String,
+        #[arg(num_args = 1..=2)]
+        ids: Vec<String>,
         #[arg(help = "Don't print error messages", long)]
         silent: bool,
         #[arg(help = "Submit assessment after upload", short, long)]
