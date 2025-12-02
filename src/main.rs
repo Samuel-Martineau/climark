@@ -38,9 +38,9 @@ async fn main() {
         Commands::UploadAssessment {
             ids,
             silent,
-            submit,
+            nosubmit,
         } => handle_error(
-            upload::upload_assessment(client, ids.last().unwrap(), submit).await,
+            upload::upload_assessment(client, ids.last().unwrap(), nosubmit).await,
             *silent,
         ),
     }

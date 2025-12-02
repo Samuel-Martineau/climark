@@ -38,8 +38,8 @@ pub enum Commands {
         ids: Vec<String>,
         #[arg(help = "Don't print error messages", long)]
         silent: bool,
-        #[arg(help = "Submit assessment after upload", short, long)]
-        submit: bool,
+        #[arg(help = "Don't submit assessment after upload", short, long)]
+        nosubmit: bool,
     },
     #[command(about = "Login to Crowdmark")]
     Login,

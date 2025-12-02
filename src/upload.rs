@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub async fn upload_assessment(
     client: Client,
     assessment_id: &str,
-    submit: &bool,
+    nosubmit: &bool,
 ) -> Result<(), ClimarkError> {
     let mut buffer = Vec::new();
     io::stdin()
@@ -40,7 +40,7 @@ pub async fn upload_assessment(
     client
         .upload_assessment(&csrf, assessment_id, pages)
         .await?;
-    if *submit {
+    if !*nosubmit {
         client.submit_assessment(&csrf, assessment_id).await?;
     }
     Ok(())
