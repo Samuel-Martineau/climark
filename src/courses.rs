@@ -14,10 +14,13 @@ pub async fn list_courses(
 ) -> Result<(), ClimarkError> {
     let courses = client.list_courses().await?;
     match *format {
-        OutputFormat::Json => println!("{}", serde_json::to_string(&courses).unwrap()),
+        OutputFormat::Json => println!("{}", serde_json::to_string(&courses)?),
         OutputFormat::Plain => {
+            use std::io::{self, Write as _};
+            let stdout = io::stdout();
+            let mut handle = io::BufWriter::new(stdout.lock());
             for course in courses {
-                println!("{}\t{}", course.id, course.name);
+                writeln!(handle, "{}\t{}", course.id, course.name)?;
             }
         }
         OutputFormat::Pretty => {

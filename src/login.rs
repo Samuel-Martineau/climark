@@ -2,7 +2,7 @@ use crate::error::ClimarkError;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::io;
-use std::io::Write;
+use std::io::Write as _;
 
 #[derive(Deserialize, Serialize)]
 pub struct LoginDetails {
@@ -11,8 +11,11 @@ pub struct LoginDetails {
 }
 
 pub async fn get_token() -> Result<String, ClimarkError> {
-    let entry =
-        Entry::new("climark", &whoami::username()).expect("Couldn't create keyring entry: {err}");
+    let entry = Entry::new(
+        "climark",
+        &std::env::var("USER").expect("No user environment variable"),
+    )
+    .expect("Couldn't create keyring entry: {err}");
     let details = if let Ok(password) = entry.get_password() {
         let details: LoginDetails =
             serde_json::from_str(&password).expect("Failed to decode keyring JSON");
@@ -41,7 +44,7 @@ fn get_email() -> String {
     io::stdin()
         .read_line(&mut email)
         .expect("Failed to read line");
-    email.trim().to_string()
+    email.trim().to_owned()
 }
 
 fn get_password() -> String {

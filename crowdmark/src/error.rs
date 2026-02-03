@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum CrowdmarkError {
     #[error("Failed to submit Crowdmark assessment")]
     AssessmentSubmit(String),
@@ -33,6 +34,7 @@ pub enum CrowdmarkError {
 }
 
 impl From<reqwest::Error> for CrowdmarkError {
+    #[inline]
     fn from(err: reqwest::Error) -> Self {
         if err.is_decode() {
             let msg = err.to_string();
@@ -44,6 +46,7 @@ impl From<reqwest::Error> for CrowdmarkError {
 }
 
 impl From<serde_json::Error> for CrowdmarkError {
+    #[inline]
     fn from(err: serde_json::Error) -> Self {
         let msg = err.to_string();
         CrowdmarkError::Decode(msg)
