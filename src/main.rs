@@ -5,34 +5,34 @@ mod error;
 mod login;
 mod upload;
 
-use clap::Parser;
+use clap::Parser as _;
 use cli::{Cli, Commands, OutputFormat};
 use error::ClimarkError;
 
-pub const TABLE_PRESET: &str = "    ────           ";
+pub const TABLE_PRESET: &str = "    \u{2500}\u{2500}\u{2500}\u{2500}           ";
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
 
-    let token = match &cli.crowdmark_session_token {
+    let token = match cli.crowdmark_session_token {
         Some(t) => t,
-        None => &login::get_token().await.unwrap(),
+        None => login::get_token().await.unwrap(),
     };
 
-    let client = crowdmark::Client::new(token).unwrap();
+    let client = crowdmark::Client::new(&token).unwrap();
 
-    match &cli.command {
+    match cli.command {
         Commands::ListCourses { format, silent } => {
-            handle_error(courses::list_courses(client, format).await, *silent);
+            handle_error(courses::list_courses(client, &format).await, silent);
         }
         Commands::ListAssessments {
             course_id,
             format,
             silent,
         } => handle_error(
-            assessments::list_assessments(client, course_id, format).await,
-            *silent,
+            assessments::list_assessments(client, &course_id, &format).await,
+            silent,
         ),
         Commands::Login => handle_error(login::login().await, false),
         Commands::UploadAssessment {
@@ -41,7 +41,7 @@ async fn main() {
             nosubmit,
         } => handle_error(
             upload::upload_assessment(client, ids.last().unwrap(), nosubmit).await,
-            *silent,
+            silent,
         ),
     }
 }

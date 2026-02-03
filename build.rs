@@ -1,25 +1,23 @@
-include!("src/cli.rs");
-use clap::CommandFactory;
+use clap::CommandFactory as _;
 use clap_complete::{
     generate_to,
     shells::{Bash, Fish, PowerShell, Zsh},
 };
+use std::env;
 use std::fs;
-use std::io::{Error, Write};
+use std::io::{Error, Write as _};
+
+include!("src/cli.rs");
 
 fn main() -> Result<(), Error> {
     const BIN_NAME: &str = env!("CARGO_PKG_NAME");
     const OUT_DIR: &str = "completions";
+
     fs::create_dir_all(OUT_DIR)?;
-
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=crowdmark/");
-    println!("cargo:rerun-if-changed=src/");
-
     let mut cmd = Cli::command();
 
     let path = generate_to(Fish, &mut cmd, BIN_NAME, OUT_DIR)?;
-    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    let mut file = fs::OpenOptions::new().append(true).open(path)?;
 
     write!(
         file,
@@ -36,6 +34,5 @@ complete -c climark -kn '__fish_climark_using_subcommand upload-assessment; and 
     generate_to(Bash, &mut cmd, BIN_NAME, OUT_DIR)?;
     generate_to(PowerShell, &mut cmd, BIN_NAME, OUT_DIR)?;
     generate_to(Zsh, &mut cmd, BIN_NAME, OUT_DIR)?;
-
     Ok(())
 }

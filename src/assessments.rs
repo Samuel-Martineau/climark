@@ -10,10 +10,13 @@ pub async fn list_assessments(
     let assessments = client.list_assessments(course_id).await?;
 
     match *format {
-        OutputFormat::Json => println!("{}", serde_json::to_string(&assessments).unwrap()),
+        OutputFormat::Json => println!("{}", serde_json::to_string(&assessments)?),
         OutputFormat::Plain => {
+            use std::io::{self, Write as _};
+            let stdout = io::stdout();
+            let mut handle = io::BufWriter::new(stdout.lock());
             for assessment in assessments {
-                println!("{}\t{}", assessment.id, assessment.title);
+                writeln!(handle, "{}\t{}", assessment.id, assessment.title)?;
             }
         }
         OutputFormat::Pretty => {

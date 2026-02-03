@@ -5,8 +5,12 @@ use thiserror::Error;
 pub enum ClimarkError {
     #[error(transparent)]
     Crowdmark(#[from] CrowdmarkError),
-    #[error("Failed to read stdin")]
-    StdinRead(),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    JsonError(#[from] serde_json::Error),
     #[error("Could not parse PDF from stdin")]
-    PdfParse(),
+    PdfParse,
+    #[error("Failed to read stdin")]
+    StdinRead,
 }
