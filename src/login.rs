@@ -10,7 +10,7 @@ pub struct LoginDetails {
     password: String,
 }
 
-pub async fn get_token() -> Result<String, ClimarkError> {
+pub async fn get_token() -> String {
     let entry = Entry::new(
         "climark",
         &std::env::var("USER").expect("No user environment variable"),
@@ -22,8 +22,8 @@ pub async fn get_token() -> Result<String, ClimarkError> {
         details
     } else {
         let details = LoginDetails {
-            email: get_email(),
-            password: get_password(),
+            email: get_email().expect("Failed getting email from stdin"),
+            password: get_password().expect("Failed getting password from stdin"),
         };
 
         entry
@@ -32,29 +32,27 @@ pub async fn get_token() -> Result<String, ClimarkError> {
         details
     };
 
-    let token = crowdmark::login::get_token(details.email, details.password).await?;
-    Ok(token)
+    crowdmark::login::get_token(details.email, details.password)
+        .await
+        .expect("Failed to get token from Crowdmark")
 }
 
-fn get_email() -> String {
+fn get_email() -> Result<String, io::Error> {
     print!("Please enter your email: ");
-    io::stdout().flush().unwrap();
+    io::stdout().flush()?;
 
     let mut email = String::new();
-    io::stdin()
-        .read_line(&mut email)
-        .expect("Failed to read line");
-    email.trim().to_owned()
+    io::stdin().read_line(&mut email)?;
+    Ok(email.trim().to_owned())
 }
 
-fn get_password() -> String {
+fn get_password() -> Result<String, ClimarkError> {
     print!("Please enter your password: ");
-    io::stdout().flush().unwrap();
-    rpassword::read_password().expect("Failed to read password")
+    io::stdout().flush()?;
+    Ok(rpassword::read_password()?)
 }
 
-pub async fn login() -> Result<(), ClimarkError> {
-    let token = get_token().await?;
+pub async fn login() {
+    let token = get_token().await;
     println!("export CROWDMARK_SESSION_TOKEN={token}");
-    Ok(())
 }

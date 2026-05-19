@@ -17,10 +17,10 @@ async fn main() {
 
     let token = match cli.crowdmark_session_token {
         Some(t) => t,
-        None => login::get_token().await.unwrap(),
+        None => login::get_token().await,
     };
 
-    let client = crowdmark::Client::new(&token).unwrap();
+    let client = crowdmark::Client::new(&token).expect("Failed to initialize Crowdmark client");
 
     match cli.command {
         Commands::ListCourses { format, silent } => {
@@ -34,14 +34,20 @@ async fn main() {
             assessments::list_assessments(client, &course_id, &format).await,
             silent,
         ),
-        Commands::Login => handle_error(login::login().await, false),
+        Commands::Login => login::login().await,
         Commands::UploadAssessment {
             ids,
             scale,
             silent,
             nosubmit,
         } => handle_error(
-            upload::upload_assessment(client, ids.last().unwrap(), scale, nosubmit).await,
+            upload::upload_assessment(
+                client,
+                ids.last().expect("No assignment/course ID provided!"),
+                scale,
+                nosubmit,
+            )
+            .await,
             silent,
         ),
     }

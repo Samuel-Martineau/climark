@@ -3,7 +3,6 @@ use reqwest::multipart;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Deserialize)]
 struct AssessResponse {
@@ -315,7 +314,7 @@ async fn upload_page(
         .map(|i| i.id.clone())
         .ok_or(CrowdmarkError::TooManyPages())?;
 
-    let uuid = Uuid::new_v4().to_string();
+    let uuid = generate_uuid_v4();
 
     let s3_policy = client
         .post("https://app.crowdmark.com/api/v1/s3_policies")
@@ -383,4 +382,32 @@ async fn upload_page(
         .error_for_status()
         .map_err(|msg| CrowdmarkError::AssessmentUpload(msg.to_string()))?;
     Ok(())
+}
+
+fn generate_uuid_v4() -> String {
+    let mut value = fastrand::u128(..);
+
+    value = (value & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF) | 0x40008000000000000000;
+
+    let bytes = value.to_be_bytes();
+
+    format!(
+        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        bytes[0],
+        bytes[1],
+        bytes[2],
+        bytes[3],
+        bytes[4],
+        bytes[5],
+        bytes[6],
+        bytes[7],
+        bytes[8],
+        bytes[9],
+        bytes[10],
+        bytes[11],
+        bytes[12],
+        bytes[13],
+        bytes[14],
+        bytes[15]
+    )
 }

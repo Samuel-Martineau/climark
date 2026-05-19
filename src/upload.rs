@@ -3,7 +3,7 @@ use crowdmark::Client;
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::vello_cpu::color::palette::css::WHITE;
-use hayro::{RenderSettings, render};
+use hayro::{RenderCache, RenderSettings, render};
 use jpeg_encoder::{ColorType, Encoder};
 use std::io::{self, Read as _};
 use std::sync::Arc;
@@ -27,12 +27,13 @@ pub async fn upload_assessment(
         bg_color: WHITE,
         ..Default::default()
     };
+    let cache = RenderCache::new();
 
     let pages = pdf
         .pages()
         .iter()
         .map(|page| {
-            let pixmap = render(page, &interpreter_settings, &render_settings);
+            let pixmap = render(page, &cache, &interpreter_settings, &render_settings);
             let width = pixmap.width();
             let height = pixmap.height();
 
@@ -42,7 +43,9 @@ pub async fn upload_assessment(
 
             let mut jpeg_data = Vec::new();
             let encoder = Encoder::new(&mut jpeg_data, 70);
-            encoder.encode(&rgb, width, height, ColorType::Rgb).unwrap();
+            encoder
+                .encode(&rgb, width, height, ColorType::Rgb)
+                .expect("Failed to encode JPEG");
             jpeg_data
         })
         .enumerate();
